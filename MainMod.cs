@@ -82,6 +82,11 @@ namespace CMS21Together
 			ContentManager.Instance = new ContentManager();
 
 			ClientData.UserData = TogetherModManager.LoadUserData();
+			if (IsSteamAvailable)
+			{
+				try { ClientData.UserData.username = PlayerNames.Default(ClientData.UserData.username, SteamClient.Name); }
+				catch (Exception ex) { Log.Warn("Could not read the Steam name: " + ex.Message); }
+			}
 			ClientSide.Features.Features.Initialize(ClientSide.Features.FeatureList.Create());
 			isModInitialized = true;
 			Log.Info("Together Mod Initialized!");

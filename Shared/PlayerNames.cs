@@ -22,4 +22,12 @@ public static class PlayerNames
 		var clean = builder.ToString().Trim();
 		return clean.Length == 0 ? $"Player {slot}" : clean;
 	}
+
+	/// <summary>The name to pre-fill: the saved one if the player picked it, else the Steam name.</summary>
+	public static string Default(string saved, string steamName)
+	{
+		var unset = string.IsNullOrWhiteSpace(saved) || saved.Trim() == "player";
+		if (!unset || string.IsNullOrWhiteSpace(steamName)) return saved;
+		return Sanitize(steamName, 1);
+	}
 }

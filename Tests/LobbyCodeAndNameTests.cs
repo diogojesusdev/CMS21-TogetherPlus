@@ -46,4 +46,12 @@ public class LobbyCodeAndNameTests
 	{
 		Assert.That(PlayerNames.Sanitize(new string('x', 100), 2).Length, Is.EqualTo(PlayerNames.MaxLength));
 	}
+
+	[TestCase("player", "J3ZILLA", ExpectedResult = "J3ZILLA")]
+	[TestCase(null, "J3ZILLA", ExpectedResult = "J3ZILLA")]
+	[TestCase("", " <Bob> ", ExpectedResult = "Bob")]
+	[TestCase("Custom", "J3ZILLA", ExpectedResult = "Custom")]
+	[TestCase("player", null, ExpectedResult = "player")]
+	[TestCase("player", "  ", ExpectedResult = "player")]
+	public string PlayerNames_DefaultToSteamNameOnlyWhenUnset(string saved, string steam) => PlayerNames.Default(saved, steam);
 }
