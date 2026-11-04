@@ -135,7 +135,7 @@ if ($Package) {
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
     New-Item -ItemType Directory -Force (Join-Path $stage 'Mods'), (Join-Path $stage 'UserLibs'), (Join-Path $stage 'LICENSES') | Out-Null
     Copy-Item $modDll (Join-Path $stage 'Mods')
-    Copy-Item (Join-Path $root 'Libs\Facepunch.Steamworks.Win64.dll') (Join-Path $stage 'UserLibs')
+    Copy-Item (Join-Path $root 'Libs\Facepunch.Steamworks.Win64.dll'), (Join-Path $root 'Libs\steam_api64.dll') (Join-Path $stage 'UserLibs')
     Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'NOTICE.md'), (Join-Path $root 'LICENSE') $stage
     Copy-Item (Join-Path $root 'install.ps1'), (Join-Path $root 'Install.bat'), (Join-Path $root 'uninstall.ps1') $stage
     Copy-Item (Join-Path $root 'LICENSES\*') (Join-Path $stage 'LICENSES')

@@ -23,7 +23,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0";
+		public const string PLUS_VERSION = "0.5.0-rc2";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;
@@ -67,6 +67,8 @@ namespace CMS21Together
 				IsSteamAvailable = false;
 				try { SteamClient.Shutdown(); } catch (Exception) { }
 				Log.Warn("Steamworks could not be initialized (Non-Steam version or Steam not running). Steam features will be disabled. " + ex.Message);
+				if (ex is EntryPointNotFoundException || ex.Message.Contains("SteamAPI_"))
+					Log.Warn("Probable cause: the wrong steam_api64.dll is in UserLibs (e.g. the game's newer copy). Run the Together+ installer again to restore the right one.");
 			}
 		}
 		

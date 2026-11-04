@@ -37,6 +37,9 @@ $MelonUrl = 'https://github.com/LavaGang/MelonLoader/releases/download/v0.5.7/Me
 # Official SHA-512 of MelonLoader.x64.zip v0.5.7 (MelonLoader.x64.sha512 of the LavaGang release).
 $MelonSha512 = 'A4A41CB6EAE1D927FFA835D24634B7F749E76090CF218EC38BC54C77ABEEAA1A22916601723E95046D5420AAE6028C7326B03236E4D6EB83635814F5C61CDED9'
 $ModDll = 'CMS21-Together.dll'
+# Valve's steam_api64.dll that matches the bundled Facepunch.Steamworks (the one CMS21-Together hf3 ships). The game's
+# own copy is a newer SDK without SteamAPI_SteamInput_v001, so Steam features fail to start with it.
+$SteamApiSha256 = '473F5A312B56519F347741B63F3DEA590946B96EA40EF3803D5F452C39AF2F1E'
 
 function Say([string]$text, [string]$color = 'Gray') { Write-Host $text -ForegroundColor $color }
 function Fail([string]$text) { throw $text }
@@ -85,7 +88,9 @@ try {
     if (-not (Test-Path (Join-Path $GamePath $GameExe))) { Fail "'$GamePath' is not the game folder: '$GameExe' is missing." }
     $GamePath = (Resolve-Path $GamePath).Path
     Say "Game: $GamePath"
-    if (Get-Process -Name 'Car Mechanic Simulator 2021' -ErrorAction SilentlyContinue) { Fail 'The game is running. Close it and run the installer again.' }
+    # Only this game folder's copy matters (a process whose path cannot be read counts as this one).
+    $running = Get-Process -Name 'Car Mechanic Simulator 2021' -ErrorAction SilentlyContinue | Where-Object { -not $_.Path -or $_.Path.StartsWith($GamePath, [StringComparison]::OrdinalIgnoreCase) }
+    if ($running) { Fail 'The game is running. Close it and run the installer again.' }
 
     # 2. MelonLoader 0.5.7 x64.
     $melonDll = Join-Path $GamePath 'MelonLoader\MelonLoader.dll'
@@ -159,9 +164,15 @@ try {
     $update = Test-Path $existing
     Copy-Item (Join-Path $package "Mods\$ModDll") $mods -Force
     Copy-Item (Join-Path $package 'UserLibs\Facepunch.Steamworks.Win64.dll') $userLibs -Force
-    $steamApi = Join-Path $GamePath 'Car Mechanic Simulator 2021_Data\Plugins\x86_64\steam_api64.dll'
-    if (Test-Path $steamApi) { Copy-Item $steamApi $userLibs -Force }
-    else { Say 'steam_api64.dll was not found in the game folder: Steam play will not work (Direct IP still does).' 'Yellow' }
+    $steamApi = Join-Path $package 'UserLibs\steam_api64.dll'
+    if (-not (Test-Path $steamApi) -or (Get-FileHash $steamApi -Algorithm SHA256).Hash -ne $SteamApiSha256) {
+        Fail 'The package has no valid UserLibs\steam_api64.dll. Download the release again.'
+    }
+    $target = Join-Path $userLibs 'steam_api64.dll'
+    if ((Test-Path $target) -and (Get-FileHash $target -Algorithm SHA256).Hash -ne $SteamApiSha256) {
+        Say 'Replaced UserLibs\steam_api64.dll with the version Together+ needs.' 'Yellow'
+    }
+    Copy-Item $steamApi $userLibs -Force
     foreach ($doc in 'README.md', 'NOTICE.md') {
         if (Test-Path (Join-Path $package $doc)) { Copy-Item (Join-Path $package $doc) (Join-Path $mods ("TogetherPlus-" + $doc)) -Force }
     }

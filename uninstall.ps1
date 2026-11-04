@@ -49,7 +49,8 @@ if (-not $GamePath) { $GamePath = Find-Game }
 if (-not $GamePath) { $GamePath = Read-Host 'Car Mechanic Simulator 2021 was not found. Paste the game folder' }
 $GamePath = $GamePath.Trim('"', ' ')
 if (-not (Test-Path (Join-Path $GamePath $GameExe))) { throw "'$GamePath' is not the game folder: '$GameExe' is missing." }
-if (Get-Process -Name 'Car Mechanic Simulator 2021' -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first.' }
+$GamePath = (Resolve-Path $GamePath).Path
+if (Get-Process -Name 'Car Mechanic Simulator 2021' -ErrorAction SilentlyContinue | Where-Object { -not $_.Path -or $_.Path.StartsWith($GamePath, [StringComparison]::OrdinalIgnoreCase) }) { throw 'The game is running. Close it first.' }
 
 $removed = 0
 foreach ($file in 'Mods\CMS21-Together.dll', 'Mods\TogetherPlus-README.md', 'Mods\TogetherPlus-NOTICE.md',

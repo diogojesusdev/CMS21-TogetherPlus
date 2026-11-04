@@ -40,10 +40,10 @@ touches your saves. To remove the mod, run `uninstall.ps1`.
 
 **Manual install:**
 1. Install [MelonLoader 0.5.7](https://github.com/LavaGang/MelonLoader/releases/tag/v0.5.7) (x64) into the game folder.
-2. From the zip, copy `Mods\CMS21-Together.dll` into `<game>\Mods` and `UserLibs\Facepunch.Steamworks.Win64.dll`
-   into `<game>\UserLibs`.
-3. Copy `<game>\Car Mechanic Simulator 2021_Data\Plugins\x86_64\steam_api64.dll` into `<game>\UserLibs`.
-4. Start the game. **The first launch takes a few minutes** while MelonLoader prepares the game.
+2. From the zip, copy `Mods\CMS21-Together.dll` into `<game>\Mods`, and both files in `UserLibs\`
+   (`Facepunch.Steamworks.Win64.dll` and `steam_api64.dll`) into `<game>\UserLibs`, replacing what is there. Don't use
+   the game's own `steam_api64.dll`: it is a newer version that Steam play doesn't work with.
+3. Start the game. **The first launch takes a few minutes** while MelonLoader prepares the game.
 
 ## Play with friends
 
@@ -108,7 +108,8 @@ The design and test notes are in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATI
   ported and modified (each ported file says so). Its licence is **non-commercial**, so **Together+ as a whole is
   free and must not be sold or distributed commercially.**
 - [CMS2021_Enhanced](https://github.com/bellaouzo/CMS2021_Enhanced) by bellaouzo (MIT): selected features.
-- Bundled libraries: HarmonyX, Newtonsoft.Json, Facepunch.Steamworks (MIT).
+- Bundled libraries: HarmonyX, Newtonsoft.Json, Facepunch.Steamworks (MIT), and Valve's Steamworks redistributable
+  `steam_api64.dll`.
 
 Full texts are in [NOTICE.md](NOTICE.md) and [LICENSES/](LICENSES/). Car Mechanic Simulator 2021 belongs to Red Dot
 Games and PlayWay; this project is not affiliated with them or endorsed by them.
