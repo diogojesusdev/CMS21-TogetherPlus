@@ -115,6 +115,7 @@
         <Compile Include="Shared\ApiCalls.cs" />
         <Compile Include="Shared\ConvertExtentions.cs" />
         <Compile Include="Shared\DataHelper.cs" />
+        <Compile Include="Shared\Il2CppArrays.cs" />
         <Compile Include="Shared\Data\ButtonState.cs" />
         <Compile Include="Shared\Data\CustomUISection.cs" />
         <Compile Include="Shared\Data\Gamemode.cs" />

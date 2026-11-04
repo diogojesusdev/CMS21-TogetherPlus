@@ -91,10 +91,7 @@ public class ModNewJobWrapper
 		// Copy job tasks
 		if (jobTasks != null)
 		{
-			newJobWrapper.jobTasks = new NewJobTaskWrapper[jobTasks.Length];
-			for (var i = 0; i < jobTasks.Length; i++)
-				if (jobTasks[i] != null)
-					newJobWrapper.jobTasks[i] = jobTasks[i].ToGame();
+			newJobWrapper.jobTasks = Il2CppArrays.Of(System.Array.ConvertAll(jobTasks, task => task?.ToGame()));
 		}
 
 		newJobWrapper.jobPartsCount = jobPartsCount;

@@ -172,7 +172,7 @@ public sealed class SceneReturnFeature : GameFeature
 				data = new ModNewCarData(car);
 				var list = parking ? Profile?.carsOnParking : Profile?.carsInGarage;
 				if (list != null && index < list.Length && list[index] != null && list[index].UId == car.UId && list[index].carToLoad == car.carToLoad)
-					list[index] = previous;
+					Il2CppArrays.Set(list, index, previous);
 			}
 			catch (Exception ex)
 			{

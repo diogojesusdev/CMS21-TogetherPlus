@@ -54,7 +54,7 @@ public static class SavesManager
 
 	public static void Initialize()
 	{
-		for (var i = 0; i < 4; i++) profileData[i] = Singleton<GameManager>.Instance.GameDataManager.ProfileData[i];
+		for (var i = 0; i < 4; i++) Il2CppArrays.Set(profileData, i, Singleton<GameManager>.Instance.GameDataManager.ProfileData[i]);
 
 		MigrateLegacySaves();
 		LoadExistingModSaves();
@@ -96,7 +96,7 @@ public static class SavesManager
 			}
 
 			var vanillaSaveArray = new Il2CppReferenceArray<SaveData>(4);
-			for (var i = 0; i < 4; i++) vanillaSaveArray[i] = GetSave(i);
+			for (var i = 0; i < 4; i++) Il2CppArrays.Set(vanillaSaveArray, i, GetSave(i));
 
 			foreach (var saveFile in saveFiles)
 			{
@@ -120,12 +120,12 @@ public static class SavesManager
 				if (modSave.alreadyLoaded)
 				{
 					var tempSaveArray = new Il2CppReferenceArray<SaveData>(4);
-					tempSaveArray[3] = GetSave(modSave.saveIndex);
+					Il2CppArrays.Set(tempSaveArray, 3, GetSave(modSave.saveIndex));
 
 					Singleton<GameManager>.Instance.GameDataManager.ReloadProfiles(tempSaveArray);
 					var copiedData = DataHelper.Copy(Singleton<GameManager>.Instance.GameDataManager.ProfileData[3]);
 
-					profileData[modSave.saveIndex] = copiedData;
+					Il2CppArrays.Set(profileData, modSave.saveIndex, copiedData);
 				}
 			}
 
@@ -271,7 +271,7 @@ public static class SavesManager
 			save.WriteSaveHeader(writer);
 			save.WriteSaveVersion(writer);
 
-			profileData[index] = save;
+			Il2CppArrays.Set(profileData, index, save);
 			Singleton<GameManager>.Instance.ProfileManager.SetNameForCurrentProfile(name);
 			Singleton<GameManager>.Instance.ProfileManager.SetDifficultyForCurrentProfile(level);
 			Singleton<GameManager>.Instance.ProfileManager.Load();
@@ -288,7 +288,7 @@ public static class SavesManager
 			save.WriteSaveHeader(writer);
 			save.WriteSaveVersion(writer);
 
-			profileData[index] = save;
+			Il2CppArrays.Set(profileData, index, save);
 			gameManager.ProfileManager.selectedProfile = index;
 			gameManager.RDGPlayerPrefs.SetInt("selectedProfile", index);
 			Singleton<GameManager>.Instance.ProfileManager.SetNameForCurrentProfile(name);
@@ -300,7 +300,7 @@ public static class SavesManager
 			{
 				// Keyed by parking slot; an empty slot has no key (a late join with a gap used to throw here).
 				var parking = currentSave.carsOnParking;
-				var placed = ParkSlots.Place(carOnPark, parking.Length, (slot, car) => parking[slot] = car.ToGame());
+				var placed = ParkSlots.Place(carOnPark, parking.Length, (slot, car) => Il2CppArrays.Set(parking, slot, car.ToGame()));
 				if (placed != carOnPark.Count) Log.Warn($"[SavesManager] {carOnPark.Count - placed} parked cars had no valid slot.");
 			}
 
@@ -508,7 +508,7 @@ public static class SavesManager
 	{
 		if (!ModSaves.TryGetValue(index, out var save) || save == null || !save.alreadyLoaded) return;
 		var parsed = ParseProfile(GetSave(index));
-		if (parsed != null) profileData[index] = parsed;
+		if (parsed != null) Il2CppArrays.Set(profileData, index, parsed);
 		else Log.Warn($"[Saves] Slot {index} could not be read again; using the copy from the menu.");
 	}
 
@@ -631,7 +631,7 @@ public static class SavesManager
 		UnreadableSlots.Remove(index);
 		ModSaves[index] = restored;
 		var parsed = ParseProfile(GetSave(index));
-		if (parsed != null) profileData[index] = parsed;
+		if (parsed != null) Il2CppArrays.Set(profileData, index, parsed);
 		else Log.Warn($"[Saves] The restored profile of slot {index} could not be read back.");
 		Log.Info($"[Saves] Slot {index} now holds {bundle.Meta}.");
 		return true;
@@ -651,7 +651,7 @@ public static class SavesManager
 		try
 		{
 			var temp = new Il2CppReferenceArray<SaveData>(4);
-			temp[3] = data;
+			Il2CppArrays.Set(temp, 3, data);
 			manager.ReloadProfiles(temp);
 			return DataHelper.Copy(manager.ProfileData[3]);
 		}
@@ -665,10 +665,10 @@ public static class SavesManager
 			try
 			{
 				var vanilla = new Il2CppReferenceArray<SaveData>(4);
-				for (var i = 0; i < 4; i++) vanilla[i] = GetSave(i);
+				for (var i = 0; i < 4; i++) Il2CppArrays.Set(vanilla, i, GetSave(i));
 				manager.ReloadProfiles(vanilla);
 				var reloaded = manager.ProfileData;
-				for (var i = 0; i < 4; i++) profileData[i] = reloaded[i];
+				for (var i = 0; i < 4; i++) Il2CppArrays.Set(profileData, i, reloaded[i]);
 				manager.ProfileData = profileData;
 			}
 			catch (Exception ex)

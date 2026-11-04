@@ -56,15 +56,12 @@ public struct ModBonusPartsData
 	public BonusPartsData ToGame()
 	{
 		var data = new BonusPartsData();
-		data.IDs = IDs;
+		data.IDs = Il2CppArrays.Of(IDs);
 		data.IsPainted = IsPainted;
 
-		data.Color = new Il2CppReferenceArray<CustomColor>(Color.Length);
-		for (var index = 0; index < Color.Length; index++)
-		{
-			var modColor = Color[index].ToGame();
-			data.Color[index] = modColor;
-		}
+		var colors = new Il2CppReferenceArray<CustomColor>(Color.Length);
+		for (var index = 0; index < Color.Length; index++) Il2CppArrays.Set(colors, index, Color[index].ToGame());
+		data.Color = colors;
 
 		data.PaintType = new Il2CppStructArray<PaintType>(PaintType.Length);
 		for (var index = 0; index < PaintType.Length; index++)

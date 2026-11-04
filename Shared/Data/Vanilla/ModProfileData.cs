@@ -114,32 +114,10 @@ public class ModProfileData
 	}
 
 	// Helper method to copy car array
-	private NewCarData[] CopyCarArray(ModNewCarData[] carArray)
-	{
-		if (carArray != null)
-		{
-			var copiedArray = new NewCarData[carArray.Length];
-			for (var i = 0; i < carArray.Length; i++)
-				if (carArray[i] != null)
-					copiedArray[i] = carArray[i].ToGame();
-			return copiedArray;
-		}
-
-		return null;
-	}
+	private UnhollowerBaseLib.Il2CppReferenceArray<NewCarData> CopyCarArray(ModNewCarData[] carArray) =>
+		carArray == null ? null : Il2CppArrays.Of(Array.ConvertAll(carArray, car => car?.ToGame()));
 
 	// Helper method to copy car lifter array
-	private NewCarLifterData[] CopyCarLifterArray(ModNewCarLifterData[] carLifterArray)
-	{
-		if (carLifterArray != null)
-		{
-			var copiedArray = new NewCarLifterData[carLifterArray.Length];
-			for (var i = 0; i < carLifterArray.Length; i++)
-				if (carLifterArray[i] != null)
-					copiedArray[i] = carLifterArray[i].ToGame();
-			return copiedArray;
-		}
-
-		return null;
-	}
+	private UnhollowerBaseLib.Il2CppReferenceArray<NewCarLifterData> CopyCarLifterArray(ModNewCarLifterData[] carLifterArray) =>
+		carLifterArray == null ? null : Il2CppArrays.Of(Array.ConvertAll(carLifterArray, lifter => lifter?.ToGame()));
 }

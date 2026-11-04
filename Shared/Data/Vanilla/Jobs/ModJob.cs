@@ -108,7 +108,7 @@ public class ModJob
 		job.Mileage = Mileage;
 		job.oilLevel = oilLevel;
 		job.jobType = (bool[])jobType.Clone();
-		job.jobTasks = jobTasks.Select(task => task.ToGame()).ToArray();
+		job.jobTasks = Il2CppArrays.Of(jobTasks.Select(task => task.ToGame()).ToArray());
 		job.jobPartsCount = jobPartsCount;
 		job.globalCondition = globalCondition;
 		job.otherPartsCondition = otherPartsCondition;

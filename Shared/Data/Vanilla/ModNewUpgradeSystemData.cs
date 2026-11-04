@@ -25,7 +25,7 @@ public struct ModNewUpgradeSystemData
 	{
 		var a = new NewUpgradeSystemData();
 
-		a.id = id;
+		a.id = Il2CppArrays.Of(id);
 		a.unlocked = new Il2CppSystem.Collections.Generic.List<BoolArrayWrapper>();
 		for (var i = 0; i < unlocked.Count; i++) a.unlocked.Add(unlocked[i].ToGame());
 
