@@ -55,12 +55,7 @@ public class ModNewCarData
 			AdditionalCarRot = newCarData.AdditionalCarRot;
 
 			if (newCarData.BodyPartsData != null)
-			{
-				BodyPartsData = new List<ModBodyPartData>();
-				foreach (var bodyPartData in newCarData.BodyPartsData.ToArray())
-					if (bodyPartData != null)
-						BodyPartsData.Add(new ModBodyPartData(bodyPartData));
-			}
+				BodyPartsData = CopyList(newCarData.BodyPartsData, part => new ModBodyPartData(part), nameof(BodyPartsData));
 
 			if (newCarData.BonusPartsData != null) 
 				BonusPartsData = new ModBonusPartsData(newCarData.BonusPartsData);
@@ -108,12 +103,7 @@ public class ModNewCarData
 			PaintData = new ModPaintData(newCarData.PaintData);
 
 			if (newCarData.PartData != null)
-			{
-				PartData = new List<ModPartData>();
-				foreach (var partData in newCarData.PartData.ToArray())
-					if (partData != null)
-						PartData.Add(new ModPartData(partData));
-			}
+				PartData = CopyList(newCarData.PartData, part => new ModPartData(part), nameof(PartData));
 
 			rimsSize = newCarData.rimsSize?.ToList();
 			tiresET = newCarData.tiresET?.ToList();
@@ -132,6 +122,29 @@ public class ModNewCarData
 		{
 			Log.Error("Error: NewCarData is null in ModNewCarData constructor.");
 		}
+	}
+
+	/// <summary>
+	/// Copies a game list item by item. List.ToArray throws on a list without its backing array (seen right after a job
+	/// car loads); the items that can be read are kept instead of losing the whole car.
+	/// </summary>
+	private static List<TOut> CopyList<TIn, TOut>(Il2CppSystem.Collections.Generic.List<TIn> source, Func<TIn, TOut> convert, string name)
+	{
+		var result = new List<TOut>();
+		try
+		{
+			var count = source.Count;
+			for (var i = 0; i < count; i++)
+			{
+				var item = source[i];
+				if (item != null) result.Add(convert(item));
+			}
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[ModNewCarData] {name} could not be read completely ({result.Count} kept): {ex.Message}");
+		}
+		return result;
 	}
 
 	public NewCarData ToGame()

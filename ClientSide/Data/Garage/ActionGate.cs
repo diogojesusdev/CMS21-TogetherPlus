@@ -129,7 +129,7 @@ public static class ActionGate
 	{
 		if (stand?.partReferences == null) return null;
 		foreach (var pair in stand.partReferences)
-			if (pair.Value == part)
+			if (PartUpdateHooks.Same(pair.Value, part))
 				return LockKeys.StandPart(number, pair.Key);
 		return null;
 	}

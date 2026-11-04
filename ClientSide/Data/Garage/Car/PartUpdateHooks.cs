@@ -106,7 +106,7 @@ public static class PartUpdateHooks
 				stand = ClientData.Instance.engineStand;
 			foreach (var kvp in stand.partReferences)
 			{
-				if (kvp.Value == partScript)
+				if (Same(kvp.Value, partScript))
 				{
 					Log.Debug($"Sending part:{partScript.id} , {kvp.Key}.");
 					MelonCoroutines.Start(SendPartUpdate(null, EngineStand.useAlt ? -2 : -1, kvp.Key, null, ModPartType.engineStand));
@@ -140,7 +140,7 @@ public static class PartUpdateHooks
 				if (stand?.partReferences != null)
 					foreach (var kvp in stand.partReferences)
 					{
-						if (kvp.Value == __instance)
+						if (Same(kvp.Value, __instance))
 						{
 							MelonCoroutines.Start(SendPartUpdate(null, standId, kvp.Key, null, ModPartType.engineStand));
 							return;
@@ -169,13 +169,20 @@ public static class PartUpdateHooks
 		}
 	}
 
+	/// <summary>
+	/// Same game object, compared by address: no call into the game, so a stale stored reference can never be
+	/// dereferenced natively (a crash the game's own == cannot guard against).
+	/// </summary>
+	public static bool Same(Object a, Object b) =>
+		ReferenceEquals(a, b) || a is not null && b is not null && a.Pointer == b.Pointer;
+
 	public static bool FindPartInDictionaries(ModCar car, PartScript partScript, out ModPartType partType, out int key, out int? index, bool warn = true)
 	{
 		index = null;
 
 		foreach (var kvp in car.CarPartInfo.OtherPartsReferences)
 		{
-			var listIndex = kvp.Value.FindIndex(part => part == partScript);
+			var listIndex = kvp.Value.FindIndex(part => Same(part, partScript));
 			if (listIndex >= 0)
 			{
 				partType = ModPartType.other;
@@ -187,7 +194,7 @@ public static class PartUpdateHooks
 
 		foreach (var kvp in car.CarPartInfo.SuspensionPartsReferences)
 		{
-			var listIndex = kvp.Value.FindIndex(part => part == partScript);
+			var listIndex = kvp.Value.FindIndex(part => Same(part, partScript));
 			if (listIndex >= 0)
 			{
 				partType = ModPartType.suspension;
@@ -198,7 +205,7 @@ public static class PartUpdateHooks
 		}
 
 		foreach (var kvp in car.CarPartInfo.EnginePartsReferences)
-			if (kvp.Value == partScript)
+			if (Same(kvp.Value, partScript))
 			{
 				partType = ModPartType.engine;
 				key = kvp.Key;
@@ -206,7 +213,7 @@ public static class PartUpdateHooks
 			}
 
 		foreach (var kvp in car.CarPartInfo.DriveshaftPartsReferences)
-			if (kvp.Value == partScript)
+			if (Same(kvp.Value, partScript))
 			{
 				partType = ModPartType.driveshaft;
 				key = kvp.Key;

@@ -65,9 +65,34 @@ public static class CarSpawnManager
 			carLoader.SaveCarToFile();
 			yield return new WaitForEndOfFrame();
 			yield return new WaitForEndOfFrame();
-			NewCarData carData = GameManager.Instance.GameDataManager.CurrentProfileData.carsInGarage[Helper.GetIndexFromCarLoaderName(carLoader.name)];
-			ModNewCarData modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
-			
+
+			// The game's copy of the car can be half-written for a frame or two: try a few times instead of losing the car.
+			ModNewCarData modCarData = null;
+			for (var attempt = 1; attempt <= 3 && modCarData == null; attempt++)
+			{
+				try
+				{
+					var carData = GameManager.Instance.GameDataManager.CurrentProfileData.carsInGarage[Helper.GetIndexFromCarLoaderName(carLoader.name)];
+					modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
+				}
+				catch (Exception ex)
+				{
+					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}) failed, attempt {attempt}/3: {ex.Message}");
+				}
+				if (modCarData == null)
+				{
+					yield return new WaitForSeconds(0.5f);
+					if (carLoader == null || !carLoader.IsCarLoaded()) yield break;
+					carLoader.SaveCarToFile();
+					yield return new WaitForEndOfFrame();
+				}
+			}
+			if (modCarData == null)
+			{
+				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) could not be sent to the other players.");
+				yield break;
+			}
+
 			ClientSend.LoadCarPacket(modCarData, carLoaderID);
 		}
 	}
