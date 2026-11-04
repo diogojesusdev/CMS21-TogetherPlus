@@ -77,7 +77,7 @@ public static class CarSpawnManager
 				}
 				catch (Exception ex)
 				{
-					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}) failed, attempt {attempt}/3: {ex.Message}");
+					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}) failed, attempt {attempt}/3: {(attempt == 3 ? ex.ToString() : ex.Message)}");
 				}
 				if (modCarData == null)
 				{

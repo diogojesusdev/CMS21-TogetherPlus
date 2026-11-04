@@ -125,14 +125,20 @@ public class ModNewCarData
 	}
 
 	/// <summary>
-	/// Copies a game list. A list without its backing array (seen right after a job car loads) must never be indexed:
-	/// list[i] on a value-type list then reads a null pointer in native code and crashes the game. ToArray throws a
-	/// managed exception instead, which is left to reach the caller's retry (CarSpawnManager.LoadJobCar).
+	/// Copies a game list. A freshly loaded job car can have a list without its backing array: indexing it reads a
+	/// null pointer in native code and crashes the game, and ToArray throws (ArgumentNullException) every time, which
+	/// lost the whole car. Such a list is read as empty.
 	/// </summary>
 	private static List<TOut> CopyList<TIn, TOut>(Il2CppSystem.Collections.Generic.List<TIn> source, Func<TIn, TOut> convert, string name)
 	{
-		var items = source.ToArray();
 		var result = new List<TOut>();
+		if (source._items == null)
+		{
+			if (source.Count > 0) Log.Warn($"[ModNewCarData] {name} says {source.Count} items but has no storage; read as empty.");
+			return result;
+		}
+
+		var items = source.ToArray();
 		try
 		{
 			foreach (var item in items)
