@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Headless tests: link only pure .NET sources (no Unity, IL2CPP, MelonLoader or Steamworks). -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>CMS21Together.Tests</RootNamespace>
+    <AssemblyName>CMS21Together.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\Log.cs" Link="Linked\Log.cs" />
+    <Compile Include="..\Shared\Packet.cs" Link="Linked\Packet.cs" />
+    <Compile Include="..\Shared\PacketTypes.cs" Link="Linked\PacketTypes.cs" />
+    <Compile Include="..\Shared\SteamworksUtils.cs" Link="Linked\SteamworksUtils.cs" />
+    <Compile Include="..\Shared\SidecarRules.cs" Link="Linked\SidecarRules.cs" />
+    <Compile Include="..\Shared\PlayerNames.cs" Link="Linked\PlayerNames.cs" />
+    <Compile Include="..\Shared\Identity.cs" Link="Linked\Identity.cs" />
+    <Compile Include="..\Shared\CredentialStore.cs" Link="Linked\CredentialStore.cs" />
+    <Compile Include="..\Shared\AtomicFile.cs" Link="Linked\AtomicFile.cs" />
+    <Compile Include="..\Shared\PlusPaths.cs" Link="Linked\PlusPaths.cs" />
+    <Compile Include="..\Shared\Net\**\*.cs" LinkBase="Linked\Net" />
+    <Compile Include="..\Shared\Locks\**\*.cs" LinkBase="Linked\Locks" />
+    <Compile Include="..\Shared\Economy\**\*.cs" LinkBase="Linked\Economy" />
+    <Compile Include="..\Shared\Persistence\**\*.cs" LinkBase="Linked\Persistence" />
+    <Compile Include="..\Shared\World\**\*.cs" LinkBase="Linked\World" />
+    <Compile Include="..\Shared\Features\**\*.cs" LinkBase="Linked\Features" />
+    <Compile Include="..\Tools\BotHarness\Soak.cs" Link="Linked\Soak.cs" />
+    <Compile Include="..\Tools\BotHarness\LockSoak.cs" Link="Linked\LockSoak.cs" />
+    <Compile Include="..\Tools\BotHarness\EconomySoak.cs" Link="Linked\EconomySoak.cs" />
+    <Compile Include="..\Tools\BotHarness\SaveKill.cs" Link="Linked\SaveKill.cs" />
+    <Compile Include="..\Tools\BotHarness\InventorySoak.cs" Link="Linked\InventorySoak.cs" />
+    <Compile Include="..\Tools\BotHarness\PurchaseSoak.cs" Link="Linked\PurchaseSoak.cs" />
+    <Compile Include="..\Tools\BotHarness\CarSoak.cs" Link="Linked\CarSoak.cs" />
+    <Compile Include="..\Tools\BotHarness\MovementSoak.cs" Link="Linked\MovementSoak.cs" />
+  </ItemGroup>
+
+</Project>

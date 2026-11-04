@@ -1,0 +1,22 @@
+Copyright (c) 2026 TogetherFixer
+
+Permission is granted to view, fork, modify, and use this source code
+for personal and non-commercial purposes.
+
+Redistribution of this source code or modified versions is permitted
+provided that:
+
+1. Original credit to TogetherFixer is retained.
+2. A link to the original repository is provided.
+3. Modified versions are clearly identified as modified.
+4. The software or modified versions are not sold or commercially distributed.
+5. The original authorship must not be misrepresented.
+
+This license applies only to the FixForTogether source code created for
+this project. Third-party libraries, game files, CMS21-Together,
+Car Mechanic Simulator 2021, and other third-party components remain
+subject to their respective licenses and copyrights.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.

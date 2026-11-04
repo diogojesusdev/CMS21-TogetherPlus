@@ -1,0 +1,39 @@
+﻿using System.Collections;
+using MelonLoader;
+using UnityEngine;
+using CMS21Together.Shared;
+
+namespace CMS21Together.ClientSide.Data.Garage.Car;
+
+public static class CarSyncManager
+{
+	public static IEnumerator ChangePosition(int carLoaderID, int placeNo)
+	{
+		while (!GameLoadHook.IsGameReady())
+			yield return new WaitForSeconds(0.25f);
+		yield return new WaitForEndOfFrame();
+
+		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car))
+		{
+			if (placeNo != car.carPosition)
+			{
+				Log.Debug($"Change {car.carID} position to {placeNo}.");
+				car.carPosition = placeNo;
+				CarSyncHooks.listenToChangePosition = false;
+				GameData.Instance.carLoaders[carLoaderID].ChangePosition(placeNo);
+			}
+		}
+	}
+
+	public static IEnumerator DeleteCar(int carLoaderID)
+	{
+		while (!GameLoadHook.IsGameReady())
+			yield return new WaitForSeconds(0.25f);
+		yield return new WaitForEndOfFrame();
+
+		if (ClientData.Instance.loadedCars.ContainsKey(carLoaderID))
+			ClientData.Instance.loadedCars.Remove(carLoaderID);
+		CarSpawnHooks.listenToDelete = false;
+		GameData.Instance.carLoaders[carLoaderID].DeleteCar();
+	}
+}

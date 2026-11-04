@@ -1,0 +1,285 @@
+﻿using System.Collections;
+using CMS21Together.ClientSide.Data.Garage.Tools;
+using CMS21Together.ClientSide.Data.Handle;
+using CMS21Together.Shared.Data;
+using CMS21Together.Shared.Data.Vanilla.Cars;
+using CMS21Together.Shared.Data.Vanilla.GarageTool;
+using CMS21Together.Shared.Locks;
+using CMS21Together.Shared.World;
+using HarmonyLib;
+using MelonLoader;
+using UnityEngine;
+using CMS21Together.Shared;
+
+namespace CMS21Together.ClientSide.Data.Garage.Car;
+
+[HarmonyPatch]
+public static class PartUpdateHooks
+{
+	public static bool listen = true;
+	
+	[HarmonyPatch(typeof(FluidsData), nameof(FluidsData.SetLevel))]
+	[HarmonyPostfix]
+	public static void SetLevelAltHook(float level, CarFluidType carFluidType, int id, FluidsData __instance)
+	{
+		if (!Client.Instance.isConnected || !listen) {listen = true; return;}
+		// Cars of the junkyard, auto salon or barn are not garage cars (their loader ids would hit garage cars).
+		if (SceneManager.CurrentScene() != GameScene.garage) return;
+
+		if (carFluidType == CarFluidType.EngineOil && __instance.Oil.CarFluid != null)
+		{
+			int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.Oil.CarFluid);
+			ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance.Oil));
+		}
+
+	}
+	
+	[HarmonyPatch(typeof(FluidData), nameof(FluidData.SetLevel))]
+	[HarmonyPostfix]
+	public static void SetLevelHook(float level, FluidData __instance)
+	{
+		if (!Client.Instance.isConnected || !listen) {listen = true; return;}
+		if (SceneManager.CurrentScene() != GameScene.garage) return;
+
+		if (__instance != null && __instance.CarFluid != null)
+		{
+			int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.CarFluid);
+			ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance));
+		}
+
+	}
+
+	[HarmonyPatch(typeof(PartScript), nameof(PartScript.DoMount))]
+	[HarmonyPostfix]
+	public static void DoMountHook(PartScript __instance)
+	{
+		// Mounts done while applying the host's state are not this player's changes: never send them back.
+		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState || SceneManager.CurrentScene() != GameScene.garage) return;
+		MelonCoroutines.Start(HandleDoMount(__instance));
+	}
+
+	private static bool AreBoltsMounted(PartScript partScript)
+	{
+		var allMounted = true;
+		foreach (var bolt in partScript.MountObjects)
+			if (bolt.unmounted)
+			{
+				allMounted = false;
+				break;
+			}
+
+		return allMounted;
+	}
+
+	/// <summary>A part left half-bolted is not sent; it is sent when the player comes back and finishes it.</summary>
+	private const float MountWatchSeconds = 600f;
+
+	private static IEnumerator HandleDoMount(PartScript partScript)
+	{
+		// Audit A11: react to the state change itself (checked every frame) instead of 0.25 s polls with a 4 s minimum.
+		var waited = 0f;
+		while (partScript != null && (partScript.IsUnmounted || !partScript.oneClickUnmount && !AreBoltsMounted(partScript)))
+		{
+			if (waited > MountWatchSeconds || !Client.Instance.isConnected) yield break;
+			yield return null;
+			waited += Time.unscaledDeltaTime;
+		}
+		if (partScript == null) yield break;
+
+		Log.Debug("[PartUpdateHooks->DoMountHook] Triggered.");
+		if (partScript.GetComponentInParent<CarLoaderOnCar>())
+		{
+			var carLoaderID = CarLoaderRegistry.IdOfParent(partScript);
+			var car = ClientData.Instance.loadedCars[carLoaderID];
+
+			if (FindPartInDictionaries(car, partScript, out var partType, out var key, out var index))
+				MelonCoroutines.Start(SendPartUpdate(car, carLoaderID, key, index, partType));
+			else
+				Log.Warn("[PartUpdateHooks->DoMountHook] PartScript not found in any dictionary.");
+		}
+		else
+		{
+			ModEngineStand stand;
+			if (EngineStand.useAlt)
+				stand = ClientData.Instance.engineStand2;
+			else
+				stand = ClientData.Instance.engineStand;
+			foreach (var kvp in stand.partReferences)
+			{
+				if (kvp.Value == partScript)
+				{
+					Log.Debug($"Sending part:{partScript.id} , {kvp.Key}.");
+					MelonCoroutines.Start(SendPartUpdate(null, EngineStand.useAlt ? -2 : -1, kvp.Key, null, ModPartType.engineStand));
+					break;
+				}
+			}
+			
+		}
+	}
+
+	[HarmonyPatch(typeof(PartScript), nameof(PartScript.Hide))]
+	[HarmonyPostfix]
+	public static void HideHook(PartScript __instance) // best way i've found to detect when a partScript is unmounted
+	{
+		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+		
+		if (__instance.GetComponentInParent<CarLoaderOnCar>())
+		{
+			var carLoaderID = CarLoaderRegistry.IdOfParent(__instance);
+			var car = ClientData.Instance.loadedCars[carLoaderID];
+
+			if (FindPartInDictionaries(car, __instance, out var partType, out var key, out var index))
+				MelonCoroutines.Start(SendPartUpdate(car, carLoaderID, key, index, partType));
+		}
+		else // engine stand
+		{
+			// Phase 6b: both stands (an unmount on engine stand 2 used to be looked up on stand 1 and never sent).
+			var standId = -1;
+			foreach (var stand in new[] { ClientData.Instance.engineStand, ClientData.Instance.engineStand2 })
+			{
+				if (stand?.partReferences != null)
+					foreach (var kvp in stand.partReferences)
+					{
+						if (kvp.Value == __instance)
+						{
+							MelonCoroutines.Start(SendPartUpdate(null, standId, kvp.Key, null, ModPartType.engineStand));
+							return;
+						}
+					}
+				standId = -2;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(CarLoader), nameof(CarLoader.TakeOffCarPart), typeof(string), typeof(bool))]
+	[HarmonyPostfix]
+	public static void TakeOffCarPartHook(string name, bool off, CarLoader __instance) // handle both Mount/Unmount with the boolean
+	{
+		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+
+		var carLoaderID = CarLoaderRegistry.IdOf(__instance);
+		var car = ClientData.Instance.loadedCars[carLoaderID];
+
+		if (FindBodyPartInDictionary(car, name, out var key))
+		{
+			// The player is working on this panel now: claim it before the write goes out.
+			ActionGate.TryBegin(LockKeys.Body(carLoaderID, key));
+			var part = car.CarPartInfo.BodyPartsReferences[key];
+			MelonCoroutines.Start(SendBodyPart(part, key, carLoaderID, Time.frameCount, off));
+		}
+	}
+
+	public static bool FindPartInDictionaries(ModCar car, PartScript partScript, out ModPartType partType, out int key, out int? index, bool warn = true)
+	{
+		index = null;
+
+		foreach (var kvp in car.CarPartInfo.OtherPartsReferences)
+		{
+			var listIndex = kvp.Value.FindIndex(part => part == partScript);
+			if (listIndex >= 0)
+			{
+				partType = ModPartType.other;
+				key = kvp.Key;
+				index = listIndex;
+				return true;
+			}
+		}
+
+		foreach (var kvp in car.CarPartInfo.SuspensionPartsReferences)
+		{
+			var listIndex = kvp.Value.FindIndex(part => part == partScript);
+			if (listIndex >= 0)
+			{
+				partType = ModPartType.suspension;
+				key = kvp.Key;
+				index = listIndex;
+				return true;
+			}
+		}
+
+		foreach (var kvp in car.CarPartInfo.EnginePartsReferences)
+			if (kvp.Value == partScript)
+			{
+				partType = ModPartType.engine;
+				key = kvp.Key;
+				return true;
+			}
+
+		foreach (var kvp in car.CarPartInfo.DriveshaftPartsReferences)
+			if (kvp.Value == partScript)
+			{
+				partType = ModPartType.driveshaft;
+				key = kvp.Key;
+				return true;
+			}
+
+		partType = default;
+		key = 0;
+		if (warn) Log.Warn("[PartUpdateHooks->FindPartInDictionaries] PartScript not found in any dictionary.");
+		return false;
+	}
+
+	public static bool FindBodyPartInDictionary(ModCar car, string carPartName, out int key, bool warn = true)
+	{
+		foreach (var kvp in car.CarPartInfo.BodyPartsReferences)
+			if (kvp.Value.name == carPartName)
+			{
+				key = kvp.Key;
+				return true;
+			}
+
+		key = 0;
+		if (warn) Log.Warn("[PartUpdateHooks->FindBodyPartInDictionary] BodyPart not found in dictionary.");
+		return false;
+	}
+
+	private static IEnumerator SendPartUpdate(ModCar car, int carLoaderID, int key, int? index, ModPartType partType)
+	{
+		yield return new WaitForEndOfFrame();
+
+		PartScript part;
+		switch (partType)
+		{
+			case ModPartType.engine:
+				part = car.CarPartInfo.EnginePartsReferences[key];
+				break;
+			case ModPartType.engineStand:
+				if (carLoaderID == -1)
+					part = ClientData.Instance.engineStand.partReferences[key];
+				else
+					part = ClientData.Instance.engineStand2.partReferences[key];
+				break;
+			case ModPartType.suspension:
+				part = car.CarPartInfo.SuspensionPartsReferences[key][index.Value];
+				break;
+			case ModPartType.other:
+				part = car.CarPartInfo.OtherPartsReferences[key][index.Value];
+				break;
+			case ModPartType.driveshaft:
+				part = car.CarPartInfo.DriveshaftPartsReferences[key];
+				break;
+			default:
+				yield break;
+		}
+
+		yield return new WaitForEndOfFrame();
+
+		if (index.HasValue && partType != ModPartType.engineStand)
+			ClientSend.PartScriptPacket(new ModPartScript(part, key, index.Value, partType), carLoaderID);
+		else if (partType != ModPartType.engineStand)
+			ClientSend.PartScriptPacket(new ModPartScript(part, key, -1, partType), carLoaderID);
+		else
+			ClientSend.PartScriptPacket(new ModPartScript(part, key, -1, partType), carLoaderID);
+	}
+
+	/// <param name="frame">Frame the panel moved in (-1: unknown); the item the game added or used then is linked.</param>
+	public static IEnumerator SendBodyPart(CarPart part, int key, int carLoaderID, int frame = -1, bool off = false)
+	{
+		yield return new WaitForEndOfFrame();
+		yield return new WaitForEndOfFrame();
+
+		// Phase 6: if another player wins this panel, the host undoes exactly this item (no duplicate, nothing lost).
+		var linked = frame < 0 ? 0 : Player.Inventory.LinkedItem(frame, off ? InventoryOp.Add : InventoryOp.Remove);
+		ClientSend.BodyPartPacket(new ModCarPart(part, key, carLoaderID), carLoaderID, linked, off);
+	}
+}

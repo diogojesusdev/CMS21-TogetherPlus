@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Headless bot harness: links only pure .NET sources (no Unity, IL2CPP, MelonLoader or Steamworks). -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>CMS21Together.BotHarness</RootNamespace>
+    <AssemblyName>BotHarness</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Shared\Log.cs" Link="Linked\Log.cs" />
+    <Compile Include="..\..\Shared\Packet.cs" Link="Linked\Packet.cs" />
+    <Compile Include="..\..\Shared\PacketTypes.cs" Link="Linked\PacketTypes.cs" />
+    <Compile Include="..\..\Shared\Identity.cs" Link="Linked\Identity.cs" />
+    <Compile Include="..\..\Shared\Net\**\*.cs" LinkBase="Linked\Net" />
+    <Compile Include="..\..\Shared\Locks\**\*.cs" LinkBase="Linked\Locks" />
+    <Compile Include="..\..\Shared\Economy\**\*.cs" LinkBase="Linked\Economy" />
+    <Compile Include="..\..\Shared\Persistence\**\*.cs" LinkBase="Linked\Persistence" />
+    <Compile Include="..\..\Shared\World\**\*.cs" LinkBase="Linked\World" />
+    <Compile Include="..\..\Shared\AtomicFile.cs" Link="Linked\AtomicFile.cs" />
+  </ItemGroup>
+
+</Project>
