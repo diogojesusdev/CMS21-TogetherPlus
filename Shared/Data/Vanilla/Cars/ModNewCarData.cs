@@ -125,20 +125,19 @@ public class ModNewCarData
 	}
 
 	/// <summary>
-	/// Copies a game list item by item. List.ToArray throws on a list without its backing array (seen right after a job
-	/// car loads); the items that can be read are kept instead of losing the whole car.
+	/// Copies a game list. A list without its backing array (seen right after a job car loads) must never be indexed:
+	/// list[i] on a value-type list then reads a null pointer in native code and crashes the game. ToArray throws a
+	/// managed exception instead, which is left to reach the caller's retry (CarSpawnManager.LoadJobCar).
 	/// </summary>
 	private static List<TOut> CopyList<TIn, TOut>(Il2CppSystem.Collections.Generic.List<TIn> source, Func<TIn, TOut> convert, string name)
 	{
+		var items = source.ToArray();
 		var result = new List<TOut>();
 		try
 		{
-			var count = source.Count;
-			for (var i = 0; i < count; i++)
-			{
-				var item = source[i];
-				if (item != null) result.Add(convert(item));
-			}
+			foreach (var item in items)
+				if (item != null)
+					result.Add(convert(item));
 		}
 		catch (Exception ex)
 		{
