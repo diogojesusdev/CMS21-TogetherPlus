@@ -5,6 +5,7 @@ using System.Linq;
 using CMS.MainMenu.Controls;
 using CMS.MainMenu.Sections;
 using CMS.UI.Controls;
+using CMS.UI.Logic.Navigation;
 using CMS21Together.Shared;
 using CMS21Together.Shared.Data;
 using MelonLoader;
@@ -60,9 +61,24 @@ public static class UICore
 		UIMenu.SetupMainMenu();
 		UIMenu.SetupMultiplayerMenu();
 		UIMenu.SetupHostMenu();
+		CreateVersionLabel();
 
 		Active_Panel = UI_Main;
 		MelonCoroutines.Start(CheckModVersion());
+	}
+
+	private static void CreateVersionLabel()
+	{
+		var label = UIElements.CreateText(UI_Main.transform, "Together+ " + MainMod.PLUS_VERSION, 16, TextAnchor.LowerRight);
+		label.gameObject.name = "TogetherPlusVersion";
+		var localize = label.GetComponent<TextLocalize>();
+		if (localize) Object.Destroy(localize);
+		label.raycastTarget = false;
+
+		var rect = label.GetComponent<RectTransform>();
+		rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(1f, 0f);
+		rect.sizeDelta = new Vector2(300, 30);
+		rect.anchoredPosition = new Vector2(-15, 10);
 	}
 
 	private static IEnumerator CheckModVersion()
