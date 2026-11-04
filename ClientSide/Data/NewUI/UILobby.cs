@@ -197,6 +197,8 @@ public static class UILobby
 
 	public static void RefreshPlayers()
 	{
+		// Players join and leave during the game too, when the lobby window is gone.
+		if (!UICore.TMP_Window) return;
 		DeleteAllPlayer();
 		// A joining player learns the capacity from the handshake, after the window was made.
 		var window = UICore.TMP_Window != null ? UICore.TMP_Window.GetComponent<RectTransform>() : null;
