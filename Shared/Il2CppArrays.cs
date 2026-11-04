@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnhollowerBaseLib;
 
 namespace CMS21Together.Shared;
@@ -15,8 +16,36 @@ public static class Il2CppArrays
 
 	public static void Set<T>(Il2CppReferenceArray<T> array, int index, T value) where T : Il2CppObjectBase
 	{
-		Store(array, index, value == null ? IntPtr.Zero : value.Pointer);
+		if (!Element<T>.IsValueType)
+		{
+			Store(array, index, value == null ? IntPtr.Zero : value.Pointer);
+			GC.KeepAlive(value);
+			return;
+		}
+
+		// Game structs (NewCarData, CustomColor, SaveData) sit inline in the array: Unhollower copies the value in,
+		// then every pointer-sized word of the element goes through the barrier so the references inside are seen.
+		if (value == null) return;
+		array[index] = value;
+		var start = array.Pointer + ElementsOffset + index * Element<T>.Size;
+		for (var offset = 0; offset + IntPtr.Size <= Element<T>.Size; offset += IntPtr.Size)
+		{
+			var slot = start + offset;
+			IL2CPP.il2cpp_gc_wbarrier_set_field(array.Pointer, slot, Marshal.ReadIntPtr(slot));
+		}
 		GC.KeepAlive(value);
+	}
+
+	private static class Element<T>
+	{
+		public static readonly bool IsValueType = typeof(Il2CppSystem.ValueType).IsAssignableFrom(typeof(T));
+		public static readonly int Size = IsValueType ? ValueSize() : IntPtr.Size;
+
+		private static int ValueSize()
+		{
+			uint align = 0;
+			return IL2CPP.il2cpp_class_value_size(Il2CppClassPointerStore<T>.NativeClassPtr, ref align);
+		}
 	}
 
 	public static void Set(Il2CppStringArray array, int index, string value) =>
