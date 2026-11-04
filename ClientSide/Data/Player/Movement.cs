@@ -23,6 +23,22 @@ public static class Movement
 	/// <summary>A jump longer than this is a teleport: no gliding across the garage.</summary>
 	private const float SnapDistance = 5f;
 
+	/// <summary>Sent positions are the player controller's position minus this.</summary>
+	private const float SentHeightOffset = 0.72f;
+
+	/// <summary>
+	/// Avatars are moved by the network only (no physics), so they must be placed with their feet, their origin, on the
+	/// floor. Every player has the same game controller: measure how far below a sent position the feet are on ours.
+	/// </summary>
+	private static float FeetBelowSent()
+	{
+		var controller = GameData.Instance?.localPlayer != null ? GameData.Instance.localPlayer.GetComponent<CharacterController>() : null;
+		if (controller == null) return 0f;
+		var feet = controller.bounds.min.y - controller.skinWidth;
+		var offset = controller.transform.position.y - SentHeightOffset - feet;
+		return Mathf.Clamp(offset, -1f, 1f);
+	}
+
 	// Other players' latest positions; their avatars glide there every frame.
 	private static readonly Dictionary<int, Vector3> targets = new();
 	private static readonly Dictionary<int, float> lastPacket = new();
@@ -59,11 +75,12 @@ public static class Movement
 		if (player.userObject)
 		{
 			Vector3 targetPos = position.toVector3();
+			targetPos.y -= FeetBelowSent();
 			var now = Time.time;
 
 			if (player.lastPosition != null)
 			{
-				var step = targetPos - player.lastPosition.toVector3();
+				var step = position.toVector3() - player.lastPosition.toVector3();
 				var interval = lastPacket.TryGetValue(id, out var last) ? Mathf.Clamp(now - last, 0.016f, 0.5f) : SendInterval;
 				var speed = Mathf.Clamp(step.magnitude / interval, 0f, 20f);
 
@@ -141,7 +158,7 @@ public static class Movement
 		if (GameData.Instance.localPlayer == null || Time.unscaledTime < nextSend) return;
 
 		var position = GameData.Instance.localPlayer.transform.position;
-		position.y -= 0.72f; // probably fix player flying
+		position.y -= SentHeightOffset; // also the spawn position the host saves: keep it as it was
 		if (Vector3.Distance(position, lastPosition) > minDistance || Time.unscaledTime >= keyframeAt)
 		{
 			lastPosition = position;

@@ -172,6 +172,16 @@ public class ClientData
 				skinnedMesh.material = material;
 			}
 
+			// The prefab's Rigidbody has gravity on: physics pulled the avatar down every step while the network
+			// position lifted it back, so other players bobbed up and down. Avatars are moved by the network only.
+			var body = playerInstance.GetComponent<Rigidbody>();
+			if (body != null)
+			{
+				body.useGravity = false;
+				body.isKinematic = true;
+				body.interpolation = RigidbodyInterpolation.None;
+			}
+
 			playerInstance.transform.localScale = new Vector3(0.095f, 0.095f, 0.095f);
 			playerInstance.transform.position = new Vector3(0, -10, 0);
 			playerInstance.transform.rotation = new Quaternion(0, 180, 0, 0);
