@@ -95,6 +95,7 @@
         <Compile Include="ClientSide\Data\NewUI\UICustomPanel.cs" />
         <Compile Include="ClientSide\Data\NewUI\UIElements.cs" />
         <Compile Include="ClientSide\Data\NewUI\UILobby.cs" />
+        <Compile Include="ClientSide\Data\NewUI\VersionPanel.cs" />
         <Compile Include="ClientSide\Data\NewUI\UIMenu.cs" />
         <Compile Include="ClientSide\Data\NewUI\UIUtils.cs" />
         <Compile Include="ClientSide\Data\Player\InfoBillboard.cs" />
@@ -216,6 +217,7 @@
         <Compile Include="Shared\Safety\Guard.cs" />
     <Compile Include="Shared\PlusSaves.cs" />
     <Compile Include="Shared\Updates\VersionText.cs" />
+    <Compile Include="Shared\Updates\ReleaseCatalog.cs" />
     <Compile Include="Shared\Updates\UpdateFiles.cs" />
         <Compile Include="Shared\Locks\LockKeys.cs" />
         <Compile Include="Shared\Locks\ResourceLockManager.cs" />
@@ -304,6 +306,8 @@
           <HintPath>Libs\Newtonsoft.Json.dll</HintPath>
         </Reference>
         <Reference Include="System.Net.Http" />
+        <Reference Include="System.Runtime.Serialization" />
+        <Reference Include="System.Xml" />
         <Reference Include="UnhollowerBaseLib">
             <HintPath>$(GameLibs)\UnhollowerBaseLib.dll</HintPath>
         </Reference>

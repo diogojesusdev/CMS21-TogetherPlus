@@ -86,6 +86,33 @@ public class UpdaterPlugin : MelonPlugin
 			LoggerInstance.Msg("[Update] The installed version is unknown (the mod has not run yet); skipping the check.");
 			return;
 		}
+
+		// A pin is an explicit player choice: it wins over "off", the mismatch request and the newest release, and it
+		// survives until the player picks Latest in the multiplayer menu.
+		var pinned = UpdateFiles.ReadPinned(plusRoot);
+		if (!string.IsNullOrEmpty(pinned))
+		{
+			if (VersionText.AreEqual(pinned, installed))
+			{
+				LoggerInstance.Msg($"[Update] Together+ {installed} is pinned; staying on it.");
+				return;
+			}
+			var pinnedRelease = FindRelease("v" + pinned);
+			var pinnedVersion = pinnedRelease != null ? VersionText.FromTag(pinnedRelease.TagName) : null;
+			if (pinnedRelease == null || pinnedVersion == null || !VersionText.AreEqual(pinnedVersion, pinned))
+			{
+				LoggerInstance.Warning($"[Update] The pinned release v{pinned} was not found; staying on {installed}. Pick another version in Multiplayer -> Version.");
+				return;
+			}
+			if (UpdateFiles.HasFailed(plusRoot, pinnedVersion))
+			{
+				LoggerInstance.Warning($"[Update] Pinned Together+ {pinnedVersion} failed to start before, so it is not installed again. Pick another version in Multiplayer -> Version.");
+				return;
+			}
+			Install(pinnedRelease, pinnedVersion, installed, true, gameDirectory, plusRoot, false);
+			return;
+		}
+
 		if (selection == "off")
 		{
 			LoggerInstance.Msg("[Update] Automatic updates are off (TogetherPlusUpdater.Channel).");
@@ -192,7 +219,7 @@ public class UpdaterPlugin : MelonPlugin
 		                   "The installer can retry that version.");
 	}
 
-	private void Install(ReleaseJson release, string version, string installed, bool forced, string gameDirectory, string plusRoot)
+	private void Install(ReleaseJson release, string version, string installed, bool forced, string gameDirectory, string plusRoot, bool clearRequest = true)
 	{
 		var zipName = AssetPrefix + version + ".zip";
 		var asset = release.Assets?.FirstOrDefault(a => a != null && a.Name == zipName);
@@ -242,7 +269,7 @@ public class UpdaterPlugin : MelonPlugin
 
 			UpdateFiles.WriteInstalledVersion(gameDirectory, version);
 			UpdateFiles.WritePending(plusRoot, version);
-			if (forced) UpdateFiles.ClearRequest(plusRoot);
+			if (forced && clearRequest) UpdateFiles.ClearRequest(plusRoot);
 			LoggerInstance.Msg($"[Update] Together+ {version} installed (was {installed}); the game starts on it now. " +
 			                   $"Plugins\\{GcFixFileName} and {UpdaterFileName} are replaced by the installer when it changes.");
 		}

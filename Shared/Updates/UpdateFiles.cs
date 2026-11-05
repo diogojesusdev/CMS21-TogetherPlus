@@ -50,6 +50,15 @@ public static class UpdateFiles
 
 	public static void ClearRequest(string plusRoot) => Delete(RequestPath(plusRoot));
 
+	/// <summary>Version the player pinned in the multiplayer menu; overrides requests and "newest" until cleared.</summary>
+	public static string PinnedPath(string plusRoot) => Path.Combine(StateDirectory(plusRoot), "pinned.txt");
+
+	public static string ReadPinned(string plusRoot) => ReadVersion(PinnedPath(plusRoot));
+
+	public static void WritePinned(string plusRoot, string version) => WriteVersion(PinnedPath(plusRoot), version);
+
+	public static void ClearPinned(string plusRoot) => Delete(PinnedPath(plusRoot));
+
 	public static string ReadStarted(string plusRoot) => ReadVersion(StartedPath(plusRoot));
 
 	public static void WriteStarted(string plusRoot, string version) => WriteVersion(StartedPath(plusRoot), version);

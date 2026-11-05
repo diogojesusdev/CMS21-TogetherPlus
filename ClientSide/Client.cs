@@ -257,6 +257,12 @@ public class Client
 		}
 
 		Log.Info($"[Update] The host runs Together+ {hostVersion}; this game runs {MainMod.PLUS_VERSION}.");
+		var pinned = UpdateFiles.ReadPinned(PlusPaths.Root);
+		if (!string.IsNullOrEmpty(pinned))
+		{
+			Log.Warn($"[Update] This game is pinned to {pinned}; the host runs {hostVersion}. Change the pin in Multiplayer -> Version to switch.");
+			return;
+		}
 		try
 		{
 			UpdateFiles.WriteRequest(PlusPaths.Root, hostVersion);

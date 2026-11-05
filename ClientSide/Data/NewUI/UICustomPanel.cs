@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using CMS.MainMenu.Controls;
 using CMS21Together.Shared;
@@ -172,6 +172,96 @@ public static class UICustomPanel
 	}
 
 	private static GameObject choiceWindow;
+
+	/// <summary>The version picker: option 0 is Latest, then one entry per published release.</summary>
+	public static void CreateVersionPanel(List<string> options, int selected, Action<int> applied)
+	{
+		if (choiceWindow) Object.Destroy(choiceWindow);
+		var behind = UICore.Active_Panel;
+		if (behind) UIUtils.SwitchPanelButton(behind.transform, true);
+
+		choiceWindow = new GameObject("VersionWindow");
+		choiceWindow.transform.SetParent(UICore.UI_Main.transform, false);
+		var window = choiceWindow;
+
+		var panelRect = window.AddComponent<RectTransform>();
+		panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+		panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+		panelRect.pivot = new Vector2(0.5f, 0.5f);
+		panelRect.sizeDelta = new Vector2(600, 340);
+		panelRect.anchoredPosition = Vector2.zero;
+		var img = window.AddComponent<Image>();
+		img.color = new Color(.031f, .027f, .033f, 0.98f);
+
+		var title = UIElements.CreateText(window.transform, "Together+ version", 24, TextAnchor.MiddleCenter);
+		var titleRect = title.GetComponent<RectTransform>();
+		titleRect.anchorMin = new Vector2(0.5f, 1f);
+		titleRect.anchorMax = new Vector2(0.5f, 1f);
+		titleRect.pivot = new Vector2(0.5f, 1f);
+		titleRect.sizeDelta = new Vector2(560, 45);
+		titleRect.anchoredPosition = Vector2.zero;
+		CreateSplitter(window.transform, new Vector2(0, -40), new(590, 2));
+
+		var info = UIElements.CreateText(window.transform,
+			"Installed: " + MainMod.PLUS_VERSION + "\n" +
+			"Latest follows new releases. Pinning keeps a version until you change it; it is installed on the next launch.",
+			15, TextAnchor.MiddleCenter);
+		info.horizontalOverflow = HorizontalWrapMode.Wrap;
+		info.verticalOverflow = VerticalWrapMode.Truncate;
+		var infoRect = info.GetComponent<RectTransform>();
+		infoRect.anchorMin = new Vector2(0.5f, 1f);
+		infoRect.anchorMax = new Vector2(0.5f, 1f);
+		infoRect.pivot = new Vector2(0.5f, 1f);
+		infoRect.sizeDelta = new Vector2(560, 70);
+		infoRect.anchoredPosition = new Vector2(0, -48);
+
+		var selector = UIElements.CreateSelector(window.transform, options);
+		selector.EnableArrows();
+		selector.SetValue(Math.Max(0, Math.Min(selected, options.Count - 1)));
+		var selectorRect = selector.GetComponent<RectTransform>();
+		selectorRect.anchorMin = new Vector2(0.5f, 1f);
+		selectorRect.anchorMax = new Vector2(0.5f, 1f);
+		selectorRect.pivot = new Vector2(0.5f, 1f);
+		selectorRect.sizeDelta = new Vector2(440, 65);
+		selectorRect.anchoredPosition = new Vector2(0, -125);
+
+		CreateSplitter(window.transform, new Vector2(0, -200), new(590, 2));
+
+		void Close()
+		{
+			if (behind) UIUtils.SwitchPanelButton(behind.transform, false);
+			if (window) Object.Destroy(window);
+		}
+
+		var applyBtn = UIElements.CreateButton(window.transform, "Apply", () =>
+		{
+			var index = selector.Current;
+			Close();
+			try
+			{
+				applied?.Invoke(index);
+			}
+			catch (Exception ex)
+			{
+				Log.Error("[UI] Applying the version failed", ex);
+			}
+		});
+		var applyRect = applyBtn.GetComponent<RectTransform>();
+		applyRect.anchorMin = new Vector2(0.5f, 0f);
+		applyRect.anchorMax = new Vector2(0.5f, 0f);
+		applyRect.pivot = new Vector2(0.5f, 0f);
+		applyRect.sizeDelta = new Vector2(180, 44);
+		applyRect.anchoredPosition = new Vector2(-100, 8);
+
+		var cancelBtn = UIElements.CreateButton(window.transform, "Cancel", Close);
+		var cancelRect = cancelBtn.GetComponent<RectTransform>();
+		cancelRect.anchorMin = new Vector2(0.5f, 0f);
+		cancelRect.anchorMax = new Vector2(0.5f, 0f);
+		cancelRect.pivot = new Vector2(0.5f, 0f);
+		cancelRect.sizeDelta = new Vector2(180, 44);
+		cancelRect.anchoredPosition = new Vector2(100, 8);
+	}
+
 
 	/// <summary>A question with buttons. Each button closes the window, then runs its action (null = just close).</summary>
 	public static void CreateChoicePanel(string title, string msg, params (string label, Action action)[] options)

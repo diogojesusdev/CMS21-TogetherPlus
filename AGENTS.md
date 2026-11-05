@@ -61,6 +61,11 @@ itself. Every push that publishes a release must therefore keep these rules:
 - **When:** the check is at **launch**, not inside a running session, and the game restarts on the new version in
   the same launch. A version that fails to start is rolled back on the next launch and not retried automatically.
 - Hosts and clients must both run the new version; the handshake refuses mixed versions.
+- **Version pinning:** Multiplayer -> Version lists `Latest` plus every release with the zip and `.sha256` and
+  writes `Updates/pinned.txt`. A pin overrides `Channel=off`, mismatch requests and the newest-release check; it is
+  installed on the next launch (older pins included) and kept until the player picks Latest. The UI warns when a
+  restart is needed, and a pinned version that failed to start is not retried. `ReleaseCatalog` decides what the
+  picker can list, so keep its asset filter in step with the release assets above.
 - **The mismatch wording is part of the auto-update contract.** `NetHost` rejects with
   `Mod version mismatch: host has TogetherPlus-<version>, ...`; `VersionText.HostVersionIn` extracts that version and
   the client writes an update request for exactly that tag. Keep the wording, the parser and `VersionTextTests` in

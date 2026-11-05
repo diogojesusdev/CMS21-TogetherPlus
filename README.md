@@ -92,6 +92,9 @@ The host's save is the game everyone plays. Each player's own saves are not used
 - **Saves.** The host saves every 5 minutes, when leaving and when quitting, with backups. After each save every
   player receives a copy (the last 3 are kept). Saves and copies are in
   `%USERPROFILE%\AppData\LocalLow\Red Dot Games\Car Mechanic Simulator 2021\TogetherPlus\`.
+- **Version pinning:** **Multiplayer -> Version** keeps you on a specific release (or back on Latest). The switch
+  applies on the next launch, and the game tells you when a restart is needed. A pin also stops automatic updates to
+  newer releases until you clear it.
 - **Recovery keys:** `Ctrl+Shift+R` resyncs with the host, `Ctrl+Shift+L` writes diagnostics to the log, `F4` resets a
   stuck lifter.
 - **Settings:** feature switches are in `<game>\UserData\MelonPreferences.cfg` under `[TogetherPlus]` (the host's

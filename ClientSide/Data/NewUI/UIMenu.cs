@@ -1,5 +1,7 @@
-﻿using CMS21Together.Shared;
+using CMS.MainMenu.Controls;
+using CMS21Together.Shared;
 using CMS21Together.Shared.Data;
+using CMS21Together.Shared.Updates;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,6 +10,18 @@ namespace CMS21Together.ClientSide.Data.NewUI;
 public static class UIMenu
 {
 	public static int save_btn_index;
+	private static MainMenuButton versionButton;
+
+	public static string VersionLabel()
+	{
+		var pinned = UpdateFiles.ReadPinned(PlusPaths.Root);
+		return "Version: " + (string.IsNullOrEmpty(pinned) ? "latest" : pinned);
+	}
+
+	public static void RefreshVersionLabel()
+	{
+		if (versionButton) versionButton.SetText(VersionLabel());
+	}
 	
 	public static void SetupMainMenu()
 	{
@@ -70,6 +84,15 @@ public static class UIMenu
 		typeBtn.OnClick.AddListener(UIActions.ChangeNetworkType(typeBtn));
 		if (MainMod.IsSteamAvailable)
 			typeBtn.SetLocked(false);
+
+		var versionBtn = UIElements.CreateButton(UICore.MP_Main.transform, VersionLabel(), () => VersionPanel.Open());
+		var versionRect = versionBtn.GetComponent<RectTransform>();
+		versionRect.anchorMin = new Vector2(0f, 0.5f);
+		versionRect.anchorMax = new Vector2(0f, 0.5f);
+		versionRect.pivot = new Vector2(0f, 0.5f);
+		versionRect.sizeDelta = new Vector2(233, 44);
+		versionRect.anchoredPosition = new Vector2(0, 197);
+		versionButton = versionBtn;
 		
 		var settingBtn = UIElements.CreateButton(UICore.MP_Main.transform, "Mod settings", null);
 		var settingRect = settingBtn.GetComponent<RectTransform>();

@@ -116,6 +116,21 @@ public class UpdateFilesTests
 	}
 
 	[Test]
+	public void PinnedVersionRoundTripsUnderThePlusRoot()
+	{
+		var plus = Path.Combine(root, "Plus");
+		Assert.IsNull(UpdateFiles.ReadPinned(plus), "no pin means latest");
+
+		UpdateFiles.WritePinned(plus, "0.5.0-rc18");
+		Assert.AreEqual("0.5.0-rc18", UpdateFiles.ReadPinned(plus));
+		Assert.That(File.Exists(UpdateFiles.PinnedPath(plus)), Is.True);
+
+		UpdateFiles.ClearPinned(plus);
+		Assert.IsNull(UpdateFiles.ReadPinned(plus));
+		Assert.That(File.Exists(UpdateFiles.PinnedPath(plus)), Is.False);
+	}
+
+	[Test]
 	public void FailedVersionsAreKeptOnce()
 	{
 		var plus = Path.Combine(root, "Plus");
