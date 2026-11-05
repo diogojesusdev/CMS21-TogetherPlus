@@ -78,3 +78,6 @@ In progress. Batch results and deviations are recorded at the end of this file.
 - **Batch 1 (rc19):** pinned `PacketTypes` ordinals (new `PacketTypesTests`), added `PacketRouter.IsQuiet` and a
   behavioural breadcrumb test, covered release-catalog assets that are incomplete or from another version.
   2,597 tests green.
+- **Batch 2 (rc20):** new `NetProtocolTests` (hello/welcome/reason/timestamp/key comparison/stall clock),
+  `ReplicaWireTests` (every layout and every rejection), `PlusPathsTests`, and the `PurchaseLinker` gaps
+  (`Reset`, ignored transactions, one undo failing). 2,676 tests green.

@@ -1,4 +1,7 @@
 using CMS21Together.BotHarness;
+using System;
+using System.Collections.Generic;
+using CMS21Together.Shared;
 using CMS21Together.Shared.Economy;
 using NUnit.Framework;
 
@@ -46,4 +49,87 @@ public class PurchaseRollbackTests
 		linker.Refused(5);
 		Assert.That(undone, Is.EqualTo(1), "an applied debit keeps its purchase");
 	}
+
+	[Test]
+	public void AResetForgetsAPendingDebitAndItsUndo()
+	{
+		var linker = new PurchaseLinker();
+		var undone = 0;
+		linker.Debit(4, 9);
+		linker.OnRefused(9, () => undone++);
+
+		linker.Reset();
+
+		Assert.That(linker.TxnFor(4), Is.Zero, "a session that starts over has no debit from the last one");
+		linker.Refused(9);
+		Assert.That(undone, Is.Zero);
+		Assert.That(linker.RolledBack, Is.Zero);
+	}
+
+	[Test]
+	public void OnlyRealDebitsWithAnActionAreTracked()
+	{
+		var linker = new PurchaseLinker();
+		linker.OnRefused(0, () => Assert.Fail("transaction 0 is not a purchase"));
+		linker.OnRefused(-3, () => Assert.Fail("a negative transaction is not a purchase"));
+		linker.OnRefused(4, null);
+
+		linker.Refused(0);
+		linker.Refused(4);
+
+		Assert.That(linker.RolledBack, Is.Zero);
+	}
+
+	[Test]
+	public void EveryUndoOfARefusedDebitRunsOnce()
+	{
+		var linker = new PurchaseLinker();
+		var steps = new List<string>();
+		linker.OnRefused(4, () => steps.Add("car"));
+		linker.OnRefused(4, () => steps.Add("item"));
+
+		linker.Refused(4);
+		linker.Refused(4);
+
+		Assert.That(steps, Is.EqualTo(new[] { "car", "item" }));
+		Assert.That(linker.RolledBack, Is.EqualTo(2));
+	}
+
+	[Test]
+	public void AFailingUndoDoesNotStopTheNextOneAndIsNotCounted()
+	{
+		var linker = new PurchaseLinker();
+		var after = false;
+		var logged = new List<string>();
+		var previousSink = Log.Sink;
+		var previousLevel = Log.MinLevel;
+		try
+		{
+			Log.Sink = new Sink(logged);
+			Log.MinLevel = LogLevel.Error;
+
+			linker.OnRefused(4, () => throw new InvalidOperationException("the game refused the undo"));
+			linker.OnRefused(4, () => after = true);
+
+			Assert.DoesNotThrow(() => linker.Refused(4));
+			Assert.That(after, Is.True, "the remaining undos still run");
+			Assert.That(linker.RolledBack, Is.EqualTo(1), "only the undo that ran counts");
+			Assert.That(logged, Has.Count.EqualTo(1));
+		}
+		finally
+		{
+			Log.Sink = previousSink;
+			Log.MinLevel = previousLevel;
+		}
+	}
+
+	private sealed class Sink : ILogSink
+	{
+		private readonly List<string> messages;
+
+		public Sink(List<string> messages) => this.messages = messages;
+
+		public void Write(LogLevel level, string message) => messages.Add(message);
+	}
 }
+
