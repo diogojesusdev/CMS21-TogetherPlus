@@ -25,7 +25,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0-rc21";
+		public const string PLUS_VERSION = "0.5.0-rc22";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;

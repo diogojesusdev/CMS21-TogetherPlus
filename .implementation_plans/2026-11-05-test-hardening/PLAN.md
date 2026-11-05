@@ -84,3 +84,6 @@ In progress. Batch results and deviations are recorded at the end of this file.
 - **Batch 3 (rc21):** new `SourceInvariantTests`: IL2CPP indexer writes, direct `MelonLogger` use, installer scripts
   BOM/ASCII, installer still ships both plugins, build still writes the `.sha256`, the `NetHost` rejection still
   parses through `VersionText.HostVersionIn`, and `PacketTypes` has no explicit numbers. 2,683 tests green.
+- **Batch 4 (rc22):** new `WireFuzzTests` over all 25 wire decoders (handshake, replica, locks, economy, purchases,
+  inventory, feature messages) with empty, constant and 128 random payloads each; every decoder must parse or throw
+  `NetFormatException`. No decoder needed a fix. 2,709 tests green.
