@@ -42,6 +42,14 @@ public sealed class PacketRouter
 		return quiet;
 	}
 
+	/// <summary>
+	/// A per-frame stream (movement, tools in motion, renewals): received but never logged. Logging one line per
+	/// frame costs the frame rate, so this set is a contract (see the logging rules in AGENTS.md).
+	/// </summary>
+	public static bool IsQuiet(int type) => type >= 0 && type < Quiet.Length && Quiet[type];
+
+	public static bool IsQuiet(PacketTypes type) => IsQuiet((int)type);
+
 	private static string NameOf(int type) => type >= 0 && type < Names.Length ? Names[type] : type.ToString();
 
 	/// <summary>Raised once per peer when it exceeded <see cref="MaxHandlerErrors"/> (the host kicks it).</summary>
@@ -72,7 +80,7 @@ public sealed class PacketRouter
 
 		// Breadcrumb before the handler: the last line before a native crash names the packet being applied.
 		int type = frame.Type;
-		if ((type >= Quiet.Length || !Quiet[type]) && Log.IsEnabled(LogLevel.Info) && trace.Allow(type, out var skipped))
+		if (!IsQuiet(type) && Log.IsEnabled(LogLevel.Info) && trace.Allow(type, out var skipped))
 			Log.Info($"[{name}] <- {NameOf(type)} from #{fromSlot} ({frame.PayloadLength} B){LogThrottle.Skipped(skipped)}");
 
 		var started = Stopwatch.GetTimestamp();

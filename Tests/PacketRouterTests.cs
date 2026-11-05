@@ -78,4 +78,70 @@ public class PacketRouterTests
 		router.ResetPeer(5);
 		Assert.That(router.ErrorCount(5), Is.Zero);
 	}
+
+	/// <summary>
+	/// The per-frame streams, as documented in AGENTS.md ("never log in per-frame paths"). Anything else that is
+	/// received gets one breadcrumb, which is what makes a crash log readable.
+	/// </summary>
+	private static readonly PacketTypes[] PerFrameStreams =
+	{
+		PacketTypes.position, PacketTypes.rotation, PacketTypes.carPosition, PacketTypes.toolMove,
+		PacketTypes.engineStandAngle, PacketTypes.carEngineSound, PacketTypes.playerInCar,
+		PacketTypes.replicaChunk, PacketTypes.replicaAck, PacketTypes.lockRenew, PacketTypes.econBalance,
+		PacketTypes.invCheck, PacketTypes.carCheck
+	};
+
+	[Test]
+	public void OnlyThePerFrameStreamsAreQuiet()
+	{
+		foreach (PacketTypes type in Enum.GetValues(typeof(PacketTypes)))
+		{
+			var expected = Array.IndexOf(PerFrameStreams, type) >= 0;
+			Assert.That(PacketRouter.IsQuiet(type), Is.EqualTo(expected),
+				expected
+					? $"{type} sends every frame and must stay quiet (one log line per frame costs the frame rate)"
+					: $"{type} is not a per-frame stream: it must be logged, or a crash log loses it");
+		}
+
+		Assert.That(PacketRouter.IsQuiet(-1), Is.False);
+		Assert.That(PacketRouter.IsQuiet(Enum.GetValues(typeof(PacketTypes)).Length + 50), Is.False, "an unknown type is not quiet");
+	}
+
+	private sealed class RecordingSink : ILogSink
+	{
+		public readonly List<string> Info = new();
+
+		public void Write(LogLevel level, string message)
+		{
+			if (level == LogLevel.Info) Info.Add(message);
+		}
+	}
+
+	[Test]
+	public void ARouteIsOnlyBreadcrumbedWhenItIsNotAPerFrameStream()
+	{
+		var previousSink = Log.Sink;
+		var previousLevel = Log.MinLevel;
+		var sink = new RecordingSink();
+		try
+		{
+			Log.Sink = sink;
+			Log.MinLevel = LogLevel.Info;
+
+			var router = new PacketRouter("test");
+			router.Register((int)PacketTypes.item, _ => { });
+			router.Register((int)PacketTypes.position, _ => { });
+
+			Assert.That(router.Dispatch(1, Frame(PacketTypes.item, 1)), Is.True);
+			Assert.That(router.Dispatch(1, Frame(PacketTypes.position, 2)), Is.True);
+
+			Assert.That(sink.Info, Has.Count.EqualTo(1), "one breadcrumb for the logged packet, none for the per-frame stream");
+			Assert.That(sink.Info[0], Does.Contain("<- item"));
+		}
+		finally
+		{
+			Log.Sink = previousSink;
+			Log.MinLevel = previousLevel;
+		}
+	}
 }

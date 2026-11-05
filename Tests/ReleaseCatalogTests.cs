@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using CMS21Together.Shared.Updates;
 using NUnit.Framework;
 
@@ -35,5 +36,30 @@ public class ReleaseCatalogTests
 		Assert.That(ReleaseCatalog.Parse(null), Is.Empty);
 		Assert.That(ReleaseCatalog.Parse(""), Is.Empty);
 		Assert.Throws<FormatException>(() => ReleaseCatalog.Parse("{not json"));
+	}
+
+	[Test]
+	public void AHashWithoutItsZipIsNotInstallable()
+	{
+		const string json = @"[
+			{""tag_name"":""v0.5.0-rc19"",""assets"":[{""name"":""TogetherPlus-0.5.0-rc19.zip.sha256""}]},
+			{""tag_name"":""v0.5.0-rc18"",""assets"":[{""name"":""TogetherPlus-0.5.0-rc18.zip""},{""name"":""TogetherPlus-0.5.0-rc18.zip.sha256""}]}
+		]";
+
+		var releases = ReleaseCatalog.Parse(json);
+		Assert.That(releases.Select(r => r.Version), Is.EqualTo(new[] { "0.5.0-rc18" }), "the updater needs both the zip and its hash");
+	}
+
+	[Test]
+	public void AssetsFromAnotherVersionAreNotThePackage()
+	{
+		// The zip must belong to the tag: a release that only carries an older name is not installable as this tag.
+		const string json = @"[
+			{""tag_name"":""v0.5.0-rc19"",""assets"":[{""name"":""TogetherPlus-0.5.0-rc18.zip""},{""name"":""TogetherPlus-0.5.0-rc18.zip.sha256""}]},
+			{""tag_name"":""v0.5.0-rc18"",""assets"":[{""name"":""TogetherPlus-0.5.0-rc18.zip""},{""name"":""TogetherPlus-0.5.0-rc18.zip.sha256""}]}
+		]";
+
+		var releases = ReleaseCatalog.Parse(json);
+		Assert.That(releases.Select(r => r.Version), Is.EqualTo(new[] { "0.5.0-rc18" }));
 	}
 }
