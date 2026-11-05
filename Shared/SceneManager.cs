@@ -13,6 +13,9 @@ namespace CMS21Together.Shared;
 [HarmonyPatch]
 public static class SceneManager
 {
+	/// <summary>The game's own profile slots; Together+ saves start right after them (SavesManager.FirstModSlot).</summary>
+	private const int VanillaSaveSlots = 4;
+
 	private static readonly System.Diagnostics.Stopwatch LoadClock = System.Diagnostics.Stopwatch.StartNew();
 	private static long loadingSinceMs = -1;
 
@@ -32,6 +35,12 @@ public static class SceneManager
 		IsLoading = true;
 		// Any scene change ends garage readiness, also after a disconnect (the menu load runs unconnected).
 		GameLoadHook.Reset();
+
+		// The menu reloads the game's own profile array, which only has the four vanilla slots, and then reads
+		// ProfileData[ProfileManager.selectedProfile] straight away. A mod save leaves that index at 4 or higher, so
+		// the game throws IndexOutOfRangeException inside its own scene-load coroutine and the process dies. This
+		// runs before the connected check on purpose: a single-player mod save returns to the menu the same way.
+		if (newSceneName == "Menu") ResetProfileSelection();
 
 		// Business Rule: Only process scene changes if client is connected
 		if (!Client.Instance.isConnected) return;
@@ -92,6 +101,29 @@ public static class SceneManager
 		}
 	}
 	
+	/// <summary>
+	/// Sends the game back to a vanilla profile slot before the menu loads. Together+ saves live at index 4 and up in
+	/// an array the mod installs; the menu rebuilds that array with the game's four slots and then reads
+	/// <c>ProfileData[selectedProfile]</c>, which throws (and kills the process) while the index still points at a
+	/// mod save. SavesManager.Initialize reinstalls the bigger array once the menu scene is up.
+	/// </summary>
+	private static void ResetProfileSelection()
+	{
+		try
+		{
+			var profiles = Singleton<GameManager>.Instance?.ProfileManager;
+			if (profiles == null || profiles.selectedProfile < VanillaSaveSlots) return;
+
+			Log.Info($"[SceneManager] Save slot {profiles.selectedProfile} is a Together+ slot; selecting a vanilla slot for the menu.");
+			profiles.selectedProfile = 0;
+			Singleton<GameManager>.Instance.RDGPlayerPrefs?.SetInt("selectedProfile", 0);
+		}
+		catch (System.Exception ex)
+		{
+			Log.Warn($"[SceneManager] Could not reset the selected save slot for the menu: {ex.Message}");
+		}
+	}
+
 	private static void StopOutdoorOperations()
 	{
 		try

@@ -100,10 +100,16 @@ public static class CarSpawnManager
 				if (carLoader == null || !carLoader.IsCarLoaded()) yield break;
 				if (!ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) yield break;
 
-				// Ask the game to write the car out again if the last request has had time to finish.
+				// Ask the game to write the car out again if the last request has had time to finish. The explicit
+				// overload names the garage slot: the no-argument one left carsInGarage empty for the whole window
+				// on a job car, so the car could never be found (the 20s "never turned up" reports).
 				if (sinceSave >= ResaveSeconds)
 				{
-					Guard.Run("save the job car into the profile", () => carLoader.SaveCarToFile());
+					Guard.Run("save the job car into the profile", () =>
+					{
+						if (preferredIndex >= 0) carLoader.SaveCarToFile(preferredIndex, false);
+						else carLoader.SaveCarToFile();
+					});
 					sinceSave = 0f;
 				}
 
