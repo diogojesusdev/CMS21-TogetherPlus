@@ -14,10 +14,11 @@ Before implementing **any** feature or fix, create a new folder under `.implemen
   - **Status:** planned / in progress / done (with version, e.g. `done in 0.5.0-rc9`), plus any follow-ups.
 - **No approval needed:** go from plan to implementation straight away. The plan **must** still be written first, then kept up to date (set the status, note deviations) and committed with the change.
 - **Ideas backlog:** ideas not being worked on yet go in `.implementation_plans/TODO.md`. When starting one, move it into its own plan folder and remove it from `TODO.md`.
+- **Plan-only changes are not released:** when you only write or update a plan or `TODO.md` (no implementation), do **not** bump the version, commit, push, release or deploy. Leave the files uncommitted; they get committed together with the implementation that uses them.
 
 ## MANDATORY: version, commit and push after EVERY change
 
-This is not optional. After **every** change or batch of changes, however small (code, logging, docs, build scripts):
+This is not optional. After **every** change or batch of changes, however small (code, logging, docs, build scripts). The only exception is plan-only changes in `.implementation_plans/` (see above):
 
 1. **Bump the mod version** in `MainMod.cs`:
    `public const string PLUS_VERSION = "0.5.0-rcN";` → `rcN+1`. On a stable version (`0.5.1`), bump the patch number.
