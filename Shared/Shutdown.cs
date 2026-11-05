@@ -60,7 +60,8 @@ public static class Shutdown
 		Guard.Run("release the garage objects the mod tracked", ReleaseGarage);
 		Guard.Run("drop the saved-car captures", CarSaveHooks.Reset);
 		Guard.Run("let go of the freed game objects", Collect);
-		Log.Info("[Shutdown] Released the mod's references to the garage.");
+		Guard.Run("release the assets the mod no longer uses", () => Resources.UnloadUnusedAssets());
+		Log.Info("[Shutdown] Released the mod's references to the garage, including the avatar template.");
 	}
 
 	private static void ReleaseCars()
@@ -80,9 +81,18 @@ public static class Shutdown
 
 		if (data.connectedClients != null)
 			foreach (var user in data.connectedClients.Values)
-				Guard.Run("remove a player's avatar", () => user?.DestroyPlayer());
+				Guard.Run("remove a player's avatar", () => user?.DestroyPlayerImmediate());
 
-		// The prefab came from the mod's bundle; the instances are gone with the scene.
+		// The avatar template is the one thing of the mod's that outlives a scene: it is instantiated from the mod's
+		// own AssetBundle and marked DontDestroyOnLoad, and the bundle was unloaded with Unload(false), so its
+		// serialized file is exactly what "Unloading N Unused Serialized files" is about to free while this object
+		// still refers to it. It is destroyed here, right now rather than at the end of the frame, and rebuilt on the
+		// next garage load. Clearing the field without destroying it would leak the instance and make the next load
+		// read the same bundle a second time.
+		Guard.Run("remove the avatar template", () =>
+		{
+			if (data.playerPrefab != null) UnityEngine.Object.DestroyImmediate(data.playerPrefab);
+		});
 		data.playerPrefab = null;
 	}
 

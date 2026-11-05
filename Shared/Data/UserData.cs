@@ -169,7 +169,38 @@ public class UserData
 	public void DestroyPlayer()
 	{
 		if (userObject == null) return;
+		// The local player's "avatar" is the game's own player object, never one of ours: destroying it would take
+		// the garage with it. Only an avatar the mod instantiated may be removed.
+		if (!IsModAvatar())
+		{
+			userObject = null;
+			return;
+		}
 		Object.Destroy(userObject);
 		userObject = null;
+	}
+
+	/// <summary>
+	/// Removes the avatar now rather than at the end of the frame. Used when the garage is being torn down: a
+	/// deferred destroy would run after Unity has started unloading, which is too late to be of any use.
+	/// </summary>
+	public void DestroyPlayerImmediate()
+	{
+		if (userObject == null) return;
+		if (!IsModAvatar())
+		{
+			userObject = null;
+			return;
+		}
+		Object.DestroyImmediate(userObject);
+		userObject = null;
+	}
+
+	/// <summary>True when <see cref="userObject"/> is an avatar the mod spawned, not the game's local player.</summary>
+	private bool IsModAvatar()
+	{
+		if (playerID == ClientData.UserData?.playerID) return false;
+		var local = GameData.Instance?.localPlayer;
+		return local == null || local.GetInstanceID() != userObject.GetInstanceID();
 	}
 }
