@@ -60,6 +60,7 @@ public static class SceneManager
 			
 			// Security Rule: Stop outdoor operations before disconnecting
 			StopOutdoorOperations();
+			CMS21Together.ClientSide.Data.Garage.Car.CarSaveHooks.Reset();
 			
 			// The menu is already loading: stop synchronously (the session save happens here) and don't load it again.
 			if (Server.Instance != null && Server.Instance.isRunning)

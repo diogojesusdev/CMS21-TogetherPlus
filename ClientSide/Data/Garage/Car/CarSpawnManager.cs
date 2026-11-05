@@ -18,9 +18,25 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 public static class CarSpawnManager
 {
 	// The game saves the car into the profile asynchronously; on a slow frame that takes seconds, not frames.
-	private const float SendWindowSeconds = 20f;
+	private const float SendWindowSeconds = 12f;
 	private const float PollSeconds = 0.25f;
-	private const float ResaveSeconds = 2f;
+	private const float ResaveSeconds = 3f;
+
+	/// <summary>
+	/// Whether it is still safe to call into the garage for this car. A scene change (going back to the menu) tears
+	/// the garage down while this coroutine is between two waits; calling the game then is a native crash, so every
+	/// loop stops here first.
+	/// </summary>
+	private static bool StillInThisGarage(CarLoader carLoader, int carLoaderID)
+	{
+		if (!Client.Instance.isConnected) return false;
+		if (SceneManager.IsLoading || !SceneManager.IsInGarage()) return false;
+		if (!GameLoadHook.IsGameReady()) return false;
+		if (carLoader == null || !carLoader.IsCarLoaded()) return false;
+		return ClientData.Instance != null
+		       && ClientData.Instance.loadedCars != null
+		       && ClientData.Instance.loadedCars.ContainsKey(carLoaderID);
+	}
 
 	public static IEnumerator LoadCar(NewCarData carData, int carLoaderID, int placeNo)
 	{
@@ -86,9 +102,11 @@ public static class CarSpawnManager
 				yield return new WaitForSeconds(0.25f);
 			yield return new WaitForEndOfFrame();
 
-			// The game writes the car into the profile asynchronously, so carsInGarage does not hold it for a while
-			// after the loader says the car is loaded. Looking exactly once (and giving up when the slot was still
-			// empty) is why job cars stopped being sent. Poll until it turns up instead, re-asking for the save.
+			// The game writes the car into the profile asynchronously, so carsInGarage does not hold it right after
+			// the loader says the car is loaded. Two things are watched: the save the game itself performs (caught by
+			// CarSaveHooks, which is exact) and the garage array (a fallback). Every iteration checks that the garage
+			// is still there - this coroutine used to keep calling into the game while the player was already on the
+			// way to the menu, which is a crash during the scene teardown.
 			var preferredIndex = Helper.GetIndexFromCarLoaderName(carLoader.name);
 			ModNewCarData modCarData = null;
 			var lastSlots = "(not read)";
@@ -97,12 +115,11 @@ public static class CarSpawnManager
 
 			for (var waited = 0f; modCarData == null && waited < SendWindowSeconds; waited += PollSeconds)
 			{
-				if (carLoader == null || !carLoader.IsCarLoaded()) yield break;
-				if (!ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) yield break;
+				if (!StillInThisGarage(carLoader, carLoaderID)) yield break;
 
 				// Ask the game to write the car out again if the last request has had time to finish. The explicit
 				// overload names the garage slot: the no-argument one left carsInGarage empty for the whole window
-				// on a job car, so the car could never be found (the 20s "never turned up" reports).
+				// on a job car, so the car could never be found (the "never turned up" reports).
 				if (sinceSave >= ResaveSeconds)
 				{
 					Guard.Run("save the job car into the profile", () =>
@@ -115,10 +132,20 @@ public static class CarSpawnManager
 
 				yield return new WaitForSeconds(PollSeconds);
 				sinceSave += PollSeconds;
+				if (!StillInThisGarage(carLoader, carLoaderID)) yield break;
 
-				// Read it through CarDataReader, never through the raw array: the array class caches its element
-				// stride in a static constructor that can run before NewCarData's, and a stale pointer inside the
-				// struct takes the game down in il2cpp_object_get_class (see the car order crash report).
+				// What the game actually wrote, caught as it wrote it. This is the path that works for a job car.
+				modCarData = CarSaveHooks.Take(preferredIndex, name);
+				if (modCarData != null)
+				{
+					modCarData.carPosition = carLoader.placeNo;
+					modCarData.jobID = carLoader.orderConnection;
+					Log.Info($"[Car] {name} (loader {carLoaderID}) was caught as the game saved it into garage slot {preferredIndex}.");
+					break;
+				}
+
+				// Fallback: read it through CarDataReader, never through the raw array (the array class caches its
+				// element stride in a static constructor that can run before NewCarData's).
 				var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
 				if (cars == null)
 				{
