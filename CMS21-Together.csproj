@@ -129,6 +129,7 @@
         <Compile Include="Shared\Data\UICustomPanelType.cs" />
         <Compile Include="Shared\Data\UserData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarDataReader.cs" />
+        <Compile Include="Shared\Data\Vanilla\Cars\CarFieldLayout.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarPayloadRules.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBodyPartData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBonusPartData.cs" />

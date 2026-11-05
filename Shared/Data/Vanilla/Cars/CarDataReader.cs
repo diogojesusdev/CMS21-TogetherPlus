@@ -16,10 +16,17 @@ namespace CMS21Together.Shared.Data.Vanilla.Cars;
 /// first is read from the wrong address - silently, without an exception. (2) A car that is still being spawned can
 /// hold stale pointers, and wrapping one crashes the game inside <c>il2cpp_object_get_class</c>.
 /// </para>
+/// <para>
+/// The field offsets IL2CPP reports for a value type are relative to its *boxed* form, so they include the object
+/// header; the elements of the array are unboxed. <see cref="CarFieldLayout"/> works out the bias to subtract, and
+/// the wrapper is built from a real box (as Unhollower does) so that reading or storing it stays in step with the
+/// game.
+/// </para>
 /// </summary>
 public static class CarDataReader
 {
 	private static readonly int ArrayHeader = 4 * IntPtr.Size; // Il2CppArray: klass, monitor, bounds, max_length
+	private static readonly int ObjectHeader = 2 * IntPtr.Size; // Il2CppObject: klass, monitor
 	private static readonly int StringHeader = 2 * IntPtr.Size; // Il2CppString: klass, monitor, then length
 	private static readonly int StringLengthOffset = 2 * IntPtr.Size;
 	private const int MaxStringLength = 512;
@@ -28,6 +35,8 @@ public static class CarDataReader
 
 	private static bool prepared;
 	private static int elementSize;
+	private static int offsetBias;
+	private static IntPtr carClass;
 
 	private static uint offCarToLoad;
 	private static uint offUId;
@@ -96,9 +105,19 @@ public static class CarDataReader
 		if (!CheckArray(ReadPointer(slot, offTiresSize), "tiresSize", ref problem)) return false;
 		if (!CheckList(ReadPointer(slot, offBodyPartsData), "BodyPartsData", ref problem)) return false;
 		if (!CheckList(ReadPointer(slot, offPartData), "PartData", ref problem)) return false;
-		if (!CheckBonusParts(slot + (int)offBonusPartsData, ref problem)) return false;
+		if (!CheckBonusParts(Field(slot, offBonusPartsData), ref problem)) return false;
 
-		data = new NewCarData(slot);
+		// Unhollower's own array indexer boxes the inline element before it wraps it; the generated field accessors
+		// then add the header-inclusive offsets to that boxed pointer. Handing the wrapper the raw inline address
+		// would make every field read (and every il2cpp_object_unbox on the way back out) 16 bytes wrong.
+		var boxed = IL2CPP.il2cpp_value_box(carClass, slot);
+		if (!SafeMemory.LooksLikeObject(boxed))
+		{
+			problem = "the car could not be boxed";
+			return false;
+		}
+
+		data = new NewCarData(boxed);
 		return true;
 	}
 
@@ -229,8 +248,25 @@ public static class CarDataReader
 					return false;
 				}
 
+				// The offsets IL2CPP reports are relative to a boxed NewCarData; the array holds unboxed elements.
+				offsetBias = CarFieldLayout.ChooseBias(
+					new[]
+					{
+						offCarToLoad, offUId, offEngineSwap, offBodyPartsData, offPartData, offBonusPartsData,
+						offColor, offFactoryColor, offGearRatio, offTiresET, offWheelsWidth, offRimsSize, offTiresSize
+					},
+					ObjectHeader, elementSize, out var headerInclusive, out var layoutProblem);
+				if (layoutProblem != null)
+				{
+					problem = layoutProblem;
+					return false;
+				}
+				if (!headerInclusive)
+					Log.Warn("[CarDataReader] NewCarData reports inline field offsets; reading them without the object header.");
+
+				carClass = klass;
 				prepared = true;
-				Log.Info($"[CarDataReader] Reading cars with the {elementSize}-byte NewCarData stride.");
+				Log.Info($"[CarDataReader] Reading cars with the {elementSize}-byte NewCarData stride (field bias {offsetBias}).");
 				return true;
 			}
 			catch (Exception ex)
@@ -282,10 +318,18 @@ public static class CarDataReader
 		return true;
 	}
 
+	/// <summary>
+	/// The address of a field inside an inline (unboxed) value type. The reported offset includes the object header
+	/// that the inline bytes do not have, so the bias is taken off again.
+	/// </summary>
+	private static IntPtr Field(IntPtr inlineBase, uint offset) => inlineBase + (int)offset - offsetBias;
+
 	private static IntPtr ReadPointer(IntPtr at, uint offset)
 	{
-		if (offset == 0 || !SafeMemory.IsReadable(at + (int)offset, IntPtr.Size)) return IntPtr.Zero;
-		return Marshal.ReadIntPtr(at + (int)offset);
+		if (offset == 0) return IntPtr.Zero;
+		var address = Field(at, offset);
+		if (!SafeMemory.IsReadable(address, IntPtr.Size)) return IntPtr.Zero;
+		return Marshal.ReadIntPtr(address);
 	}
 
 	private static bool TryReadString(IntPtr pointer, out string value)
