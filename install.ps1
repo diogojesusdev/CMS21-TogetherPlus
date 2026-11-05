@@ -173,6 +173,30 @@ try {
         Say 'Replaced UserLibs\steam_api64.dll with the version Together+ needs.' 'Yellow'
     }
     Copy-Item $steamApi $userLibs -Force
+    # Turns the game's incremental GC off before it starts (it freed objects still in use and crashed the game).
+    $gcFix = Join-Path $package 'Plugins\TogetherPlus.GcFix.dll'
+    if (Test-Path $gcFix) {
+        $plugins = Join-Path $GamePath 'Plugins'
+        New-Item -ItemType Directory -Force $plugins | Out-Null
+        Copy-Item $gcFix $plugins -Force
+    }
+    # Updates the mod between launches: it checks this repo's releases before the mod loads.
+    $updater = Join-Path $package 'Plugins\TogetherPlus.Updater.dll'
+    if (Test-Path $updater) {
+        $plugins = Join-Path $GamePath 'Plugins'
+        New-Item -ItemType Directory -Force $plugins | Out-Null
+        Copy-Item $updater $plugins -Force
+    }
+    # The updater reads the installed version from this file, so it exists even before the mod has ever run.
+    $versionFile = Join-Path $package 'Mods\CMS21-Together.version'
+    if (-not (Test-Path $versionFile) -and $Zip) {
+        $fromZip = [regex]::Match((Split-Path $Zip -Leaf), '^TogetherPlus-(?<v>.+)\.zip$')
+        if ($fromZip.Success) {
+            $versionFile = Join-Path $work 'CMS21-Together.version'
+            Set-Content -Path $versionFile -Value $fromZip.Groups['v'].Value -Encoding utf8
+        }
+    }
+    if ((Test-Path $versionFile) -and $versionFile) { Copy-Item $versionFile (Join-Path $mods 'CMS21-Together.version') -Force }
     foreach ($doc in 'README.md', 'NOTICE.md') {
         if (Test-Path (Join-Path $package $doc)) { Copy-Item (Join-Path $package $doc) (Join-Path $mods ("TogetherPlus-" + $doc)) -Force }
     }

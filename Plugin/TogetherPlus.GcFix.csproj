@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>TogetherPlus.GcFix</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GamePath Condition="'$(GamePath)' == ''">$(CMS21_GAME_PATH)</GamePath>
+    <MelonLoaderDll Condition="'$(GamePath)' != ''">$(GamePath)\MelonLoader\MelonLoader.dll</MelonLoaderDll>
+    <MelonLoaderDll Condition="'$(MelonLoaderDll)' == ''">$(MSBuildThisFileDirectory)..\Libs\MelonLoader.dll</MelonLoaderDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Updater\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="MelonLoader">
+      <HintPath>$(MelonLoaderDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

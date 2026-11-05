@@ -1,6 +1,6 @@
 # Job cars are not sent to the other players
 
-**Status:** planned. Not fixed in rc6–rc9.
+**Status:** done in 0.5.0-rc12. In-game check on a real job accept still to do (see Testing).
 
 ## Goal
 
@@ -22,28 +22,43 @@ When the host accepts a job, the job car loads locally but is never sent to the 
 
 ## Findings
 
-- The rc6 fix (`CopyList` returns an empty list when `source._items == null`) did **not** catch this. `_items` is non-null as seen from Unhollower, yet the game's `List<T>.ToArray()` still throws `ArgumentNullException` natively.
-- The failure is deterministic: all 3 attempts fail, 0.5 s apart, each after `SaveCarToFile()`.
-- `CopyList` is used for `BodyPartsData` and `PartData`. The log doesn't say which list failed, because the exception escapes `CopyList` before its `name` is logged.
-- One failing list loses the whole car: the exception escapes the `ModNewCarData` constructor.
-- Hypotheses to check:
-  1. Unhollower reads `_items` for the generic `List<T>` instantiation at the wrong field offset, or from a different object than the native code uses.
-  2. `ToArray` in this IL2CPP build fails on a null **element** conversion or an inner array, not on `_items` itself.
-  3. `carsInGarage[index]` is a stale or half-written copy (wrong index from `GetIndexFromCarLoaderName`, or `SaveCarToFile` hasn't finished).
+- The rc6 guard (`CopyList` returns an empty list when `source._items == null`) could never fire. Unhollower's
+  generated `Il2CppSystem.Collections.Generic.List<T>._items` getter wraps **the address of the field** with
+  `Il2CppArrayBase<T>.WrapNativeGenericArrayPointer`, so the wrapper is never null even when the game list has no
+  backing array. Its `Length` would read the neighbouring fields, so it must not be used either.
+- The native exception is real: `List<T>.ToArray()` throws `ArgumentNullException` when the list's `_items` array is
+  null. rc3 had already seen that indexing the same list crashes native code.
+- One failing list escapes `ModNewCarData`'s constructor and loses the whole car (the log never said which list).
+- The garage slot came from `Helper.GetIndexFromCarLoaderName(carLoader.name)`; if that lookup is wrong, a different
+  (or empty) profile entry is read, so the reported data could be for the wrong car.
+- `CarLoader.SaveCarToFile()` does not write a file: it writes the live car into the profile's `carsInGarage`, which is
+  why the read happens after it.
 
-## Approach (proposed)
+## Approach
 
-1. Stop calling `ToArray()`. Read by index up to `Count`, bounds-checked against `_items.Length`, with a try/catch **per list**. A bad list is then read as empty (with a warning naming it) instead of losing the car.
-2. Wrap each list/sub-object copy in the constructor so one bad field never drops the whole car.
-3. Add diagnostics on failure: list name, `Count`, `_items` pointer and length, and the loader/index used.
-4. If the data really is half-written, read the car from the `CarLoader` directly instead of `carsInGarage`.
+1. `CopyList` reads the real array pointer from the list field's slot (`Marshal.ReadIntPtr(source._items.Pointer)`), then
+   copies by index from an `Il2CppReferenceArray<T>` with `Math.Min(Count, Length)` bounds. It never calls `ToArray`.
+   A list with no storage is copied as empty with a warning naming it, so the rest of the car still syncs.
+2. Each element conversion is guarded separately, so one unreadable panel or part does not drop the list.
+3. `LoadJobCar` finds the slot by car name: the loader-name lookup when it holds that car, otherwise a scan of
+   `carsInGarage`, with a log line when they differ. Out-of-range lookups are reported instead of throwing.
+4. Diagnostics name the list, the count, the slot and the loader on failure.
+5. Alternatives rejected: `List<T>.ToArray()` (throws), `source[i]` on the raw list (native crash on a null array),
+   `DataHelper.Copy` (shares the same lists), and rebuilding the car from the live parts (large protocol change; part
+   packets already sync the contents).
 
 ## Files
 
-- `Shared/Data/Vanilla/Cars/ModNewCarData.cs` (`CopyList`, constructor)
-- `ClientSide/Data/Garage/Car/CarSpawnManager.cs` (`LoadJobCar`)
+- `Shared/Data/Vanilla/Cars/ModNewCarData.cs` (`CopyList`)
+- `ClientSide/Data/Garage/Car/CarSpawnManager.cs` (`LoadJobCar`, `FindGarageIndex`)
 
 ## Testing
 
-- Unit tests where pure .NET allows it.
-- In game: the host accepts a job (e.g. `car_bmwm1procar`). The other player must see the car, and the log must show `[Car] Job car ... sent to the other players.`
+- Unit tests still pass (2574); the changed code needs the game runtime (Il2Cpp lists).
+- In game: host, accept a job (e.g. `car_bmwm1procar`); the other player must see the car and the log must show
+  `[Car] Job car ... sent to the other players.` If a list is still empty-storage, the warning names it and the car
+  must arrive anyway.
+
+## Follow-ups
+
+- Play-test verification needs a manual job accept on two clients.

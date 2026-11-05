@@ -23,7 +23,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0-rc11";
+		public const string PLUS_VERSION = "0.5.0-rc12";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;
@@ -85,6 +85,26 @@ namespace CMS21Together
 			catch (Exception ex) { Log.Warn("[GC] Could not read the GC mode: " + ex.Message); }
 		}
 
+		/// <summary>
+		/// Records what the updater needs: the version installed next to the DLL (readable without loading it) and the
+		/// version that started successfully (so an update that cannot boot is rolled back on the next launch).
+		/// </summary>
+		private static void RecordInstalledVersion()
+		{
+			try
+			{
+				Shared.Updates.UpdateFiles.WriteInstalledVersion(MelonUtils.GameDirectory, PLUS_VERSION);
+				Shared.Updates.UpdateFiles.WriteStarted(Shared.PlusPaths.Root, PLUS_VERSION);
+				var request = Shared.Updates.UpdateFiles.ReadRequest(Shared.PlusPaths.Root);
+				if (request != null)
+					Log.Info($"[Update] The updater will install Together+ {request}, the version the host runs.");
+			}
+			catch (Exception ex)
+			{
+				Log.Warn("[Update] Could not record the installed version: " + ex.Message);
+			}
+		}
+
 		public override void OnLateInitializeMelon()
 		{
 			InitializeSteam();
@@ -103,6 +123,7 @@ namespace CMS21Together
 			ClientSide.Features.Features.Initialize(ClientSide.Features.FeatureList.Create());
 			isModInitialized = true;
 			LogGcMode();
+			RecordInstalledVersion();
 			Log.Info("Together Mod Initialized!");
 		}
 

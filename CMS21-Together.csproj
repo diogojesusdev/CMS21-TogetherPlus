@@ -213,6 +213,8 @@
         <Compile Include="Shared\AtomicFile.cs" />
         <Compile Include="Shared\PlusPaths.cs" />
     <Compile Include="Shared\PlusSaves.cs" />
+    <Compile Include="Shared\Updates\VersionText.cs" />
+    <Compile Include="Shared\Updates\UpdateFiles.cs" />
         <Compile Include="Shared\Locks\LockKeys.cs" />
         <Compile Include="Shared\Locks\ResourceLockManager.cs" />
         <Compile Include="Shared\Locks\ClientLockTable.cs" />

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using CMS21Together.Shared.Data.Vanilla.GarageTool;
 using MelonLoader;
+using UnhollowerBaseLib;
 
 namespace CMS21Together.Shared.Data.Vanilla.Cars;
 
@@ -125,30 +127,64 @@ public class ModNewCarData
 	}
 
 	/// <summary>
-	/// Copies a game list. A freshly loaded job car can have a list without its backing array: indexing it reads a
-	/// null pointer in native code and crashes the game, and ToArray throws (ArgumentNullException) every time, which
-	/// lost the whole car. Such a list is read as empty.
+	/// Copies a game list without List.ToArray. A freshly loaded job car can have a list whose backing array is still
+	/// null; ToArray then throws in native code (ArgumentNullException) and the whole car was lost. Unhollower's
+	/// List._items getter cannot detect that (it wraps the address of the field, so it is never null), so the array
+	/// pointer is read from the field's slot. A list without storage is copied as empty (with a warning naming it), so
+	/// the rest of the car still syncs.
 	/// </summary>
 	private static List<TOut> CopyList<TIn, TOut>(Il2CppSystem.Collections.Generic.List<TIn> source, Func<TIn, TOut> convert, string name)
+		where TIn : Il2CppObjectBase
 	{
 		var result = new List<TOut>();
-		if (source._items == null)
+		if (source == null) return result;
+
+		int count;
+		IntPtr arrayPointer;
+		try
 		{
-			if (source.Count > 0) Log.Warn($"[ModNewCarData] {name} says {source.Count} items but has no storage; read as empty.");
+			count = source.Count;
+			// List._items.Pointer is the address of the field; the field holds the real array (or null).
+			var slot = source._items?.Pointer ?? IntPtr.Zero;
+			arrayPointer = slot == IntPtr.Zero ? IntPtr.Zero : Marshal.ReadIntPtr(slot);
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[ModNewCarData] {name} could not be read and was left empty: {ex.Message}");
 			return result;
 		}
 
-		var items = source.ToArray();
+		if (arrayPointer == IntPtr.Zero)
+		{
+			Log.Warn($"[ModNewCarData] {name} reports {count} item(s) but has no storage; left empty so the car still syncs.");
+			return result;
+		}
+
 		try
 		{
-			foreach (var item in items)
-				if (item != null)
-					result.Add(convert(item));
+			var items = new Il2CppReferenceArray<TIn>(arrayPointer);
+			var length = Math.Min(count, items.Length);
+			if (count > items.Length)
+				Log.Warn($"[ModNewCarData] {name} reports {count} item(s) but its storage holds {items.Length}; reading {length}.");
+
+			for (var i = 0; i < length; i++)
+			{
+				try
+				{
+					var item = items[i];
+					if (item != null) result.Add(convert(item));
+				}
+				catch (Exception ex)
+				{
+					Log.Warn($"[ModNewCarData] {name}[{i}] could not be read: {ex.Message}");
+				}
+			}
 		}
 		catch (Exception ex)
 		{
 			Log.Warn($"[ModNewCarData] {name} could not be read completely ({result.Count} kept): {ex.Message}");
 		}
+
 		return result;
 	}
 

@@ -53,7 +53,8 @@ $GamePath = (Resolve-Path $GamePath).Path
 if (Get-Process -Name 'Car Mechanic Simulator 2021' -ErrorAction SilentlyContinue | Where-Object { -not $_.Path -or $_.Path.StartsWith($GamePath, [StringComparison]::OrdinalIgnoreCase) }) { throw 'The game is running. Close it first.' }
 
 $removed = 0
-foreach ($file in 'Mods\CMS21-Together.dll', 'Mods\TogetherPlus-README.md', 'Mods\TogetherPlus-NOTICE.md',
+foreach ($file in 'Mods\CMS21-Together.dll', 'Mods\CMS21-Together.version', 'Mods\TogetherPlus-README.md', 'Mods\TogetherPlus-NOTICE.md',
+                  'Plugins\TogetherPlus.GcFix.dll', 'Plugins\TogetherPlus.Updater.dll',
                   'UserLibs\Facepunch.Steamworks.Win64.dll', 'UserLibs\steam_api64.dll') {
     $path = Join-Path $GamePath $file
     if (Test-Path $path) { Remove-Item $path -Force; $removed++; Write-Host "Removed $file" }

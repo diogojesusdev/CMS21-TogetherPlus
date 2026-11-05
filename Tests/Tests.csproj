@@ -29,6 +29,7 @@
     <Compile Include="..\Shared\CredentialStore.cs" Link="Linked\CredentialStore.cs" />
     <Compile Include="..\Shared\AtomicFile.cs" Link="Linked\AtomicFile.cs" />
     <Compile Include="..\Shared\PlusPaths.cs" Link="Linked\PlusPaths.cs" />
+    <Compile Include="..\Shared\Updates\**\*.cs" LinkBase="Linked\Updates" />
     <Compile Include="..\Shared\Net\**\*.cs" LinkBase="Linked\Net" />
     <Compile Include="..\Shared\Locks\**\*.cs" LinkBase="Linked\Locks" />
     <Compile Include="..\Shared\Economy\**\*.cs" LinkBase="Linked\Economy" />

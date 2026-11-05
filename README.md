@@ -40,10 +40,31 @@ touches your saves. To remove the mod, run `uninstall.ps1`.
 
 **Manual install:**
 1. Install [MelonLoader 0.5.7](https://github.com/LavaGang/MelonLoader/releases/tag/v0.5.7) (x64) into the game folder.
-2. From the zip, copy `Mods\CMS21-Together.dll` into `<game>\Mods`, and both files in `UserLibs\`
-   (`Facepunch.Steamworks.Win64.dll` and `steam_api64.dll`) into `<game>\UserLibs`, replacing what is there. Don't use
-   the game's own `steam_api64.dll`: it is a newer version that Steam play doesn't work with.
-3. Start the game. **The first launch takes a few minutes** while MelonLoader prepares the game.
+2. From the zip, copy `Mods\CMS21-Together.dll` and `Mods\CMS21-Together.version` into `<game>\Mods`, and both files in
+   `UserLibs\` (`Facepunch.Steamworks.Win64.dll` and `steam_api64.dll`) into `<game>\UserLibs`, replacing what is there.
+   Don't use the game's own `steam_api64.dll`: it is a newer version that Steam play doesn't work with.
+3. Copy the files in `Plugins\` (`TogetherPlus.GcFix.dll`, `TogetherPlus.Updater.dll`) into `<game>\Plugins`.
+   `GcFix` keeps the game from crashing when you leave the garage; `Updater` keeps the mod up to date.
+4. Start the game. **The first launch takes a few minutes** while MelonLoader prepares the game.
+
+## Automatic updates
+
+`Plugins\TogetherPlus.Updater.dll` checks for a newer Together+ before the mod loads, so an update applies during that
+same launch: the game starts on the new version with no extra restart.
+
+- **Checksums:** a download must come from this repository over HTTPS and match the SHA-256 published with the release.
+  Anything else is thrown away and the installed version keeps working.
+- **Safety net:** the previous files are kept. If the new version crashes before the mod finishes loading, the next
+  launch puts the old version back and does not retry that version automatically.
+- **Matching the host:** when a host refuses a join because it runs another version, the game remembers the host's
+  version; restart and the updater installs exactly that version. The message in the multiplayer window says which one.
+- **Settings:** `<game>\UserData\MelonPreferences.cfg`, section `[TogetherPlusUpdater]`:
+  - `"Channel"`: `"prerelease"` (default: newest build, including release candidates), `"stable"` (only full
+    releases), or `"off"`.
+  - `"CheckOnStartup"`: `true` or `false`.
+- **Limits:** without internet, or with GitHub blocked, the game keeps the installed version. Updating the updater
+  itself and the crash fix needs the installer (they are already loaded when a check runs, so they cannot replace
+  themselves safely).
 
 ## Play with friends
 
@@ -74,7 +95,8 @@ The host's save is the game everyone plays. Each player's own saves are not used
 - **Recovery keys:** `Ctrl+Shift+R` resyncs with the host, `Ctrl+Shift+L` writes diagnostics to the log, `F4` resets a
   stuck lifter.
 - **Settings:** feature switches are in `<game>\UserData\MelonPreferences.cfg` under `[TogetherPlus]` (the host's
-  switches apply to everyone). The player limit is `"MaxPlayers"` (2 to 8) in `<game>\UserData\TogetherPlus.json`.
+  switches apply to everyone). The player limit is `"MaxPlayers"` (2 to 8) in `<game>\UserData\TogetherPlus.json`, and
+  the updater's channel is under `[TogetherPlusUpdater]`.
 
 ## Troubleshooting
 
@@ -82,7 +104,10 @@ The host's save is the game everyone plays. Each player's own saves are not used
 - **Black screen or long first start:** the first launch after installing MelonLoader takes several minutes. Wait
   until the console window shows the game started. Check that MelonLoader is version 0.5.7.
 - **Friends can't connect over Direct IP:** check the port forward of TCP 7777 and Windows Firewall, or use Steam.
-- **"Incompatible Together+ version" when joining:** everyone must run the installer again to get the same version.
+- **"Incompatible Together+ version" (or a version mismatch) when joining:** restart the game. The updater installs the
+  host's version automatically; if the game still reports the same version, run the installer on both sides.
+- **"Incremental GC is on" in the log:** `Plugins\TogetherPlus.GcFix.dll` is missing. Copy it from the zip, or run the
+  installer again. Without it the game can crash when going back to the menu.
 - **The host lost or broke its save:** the host chooses the save slot and **Host anyway**; when a player who has a copy
   joins, the host is asked whether to restore it (the damaged files are kept as a backup). A copy can also be loaded
   into an empty slot with **Restore a backup**.

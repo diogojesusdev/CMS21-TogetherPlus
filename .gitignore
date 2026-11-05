@@ -21,3 +21,7 @@ App.config
 /Tools/*/obj/
 
 dist/
+/Plugin/bin/
+/Plugin/obj/
+/Plugin/*/bin/
+/Plugin/*/obj/

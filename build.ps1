@@ -101,9 +101,21 @@ $testProject = Join-Path $root 'Tests\Tests.csproj'
 $harnessProject = Join-Path $root 'Tools\BotHarness\BotHarness.csproj'
 $harnessExe = Join-Path $root "Tools\BotHarness\bin\$Configuration\net472\BotHarness.exe"
 $modDll = Join-Path $root "bin\$Configuration\CMS21-Together.dll"
+$pluginProject = Join-Path $root 'Plugin\TogetherPlus.GcFix.csproj'
+$pluginDll = Join-Path $root "Plugin\bin\$Configuration\TogetherPlus.GcFix.dll"
+$updaterProject = Join-Path $root 'Plugin\Updater\TogetherPlus.Updater.csproj'
+$updaterDll = Join-Path $root "Plugin\Updater\bin\$Configuration\TogetherPlus.Updater.dll"
 
 Invoke-Step "Build mod ($Configuration)" {
     & $msbuild $modProject -restore "-p:Configuration=$Configuration" @gameArgs -nologo -v:minimal
+}
+
+Invoke-Step "Build GC plugin ($Configuration)" {
+    dotnet build $pluginProject -c $Configuration @gameArgs --nologo -v q
+}
+
+Invoke-Step "Build updater plugin ($Configuration)" {
+    dotnet build $updaterProject -c $Configuration @gameArgs --nologo -v q
 }
 
 Invoke-Step "Build bot harness ($Configuration)" {
@@ -133,8 +145,12 @@ if ($Package) {
     $stage = Join-Path $root "dist\TogetherPlus-$version"
     $zip = "$stage.zip"
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
-    New-Item -ItemType Directory -Force (Join-Path $stage 'Mods'), (Join-Path $stage 'UserLibs'), (Join-Path $stage 'LICENSES') | Out-Null
+    New-Item -ItemType Directory -Force (Join-Path $stage 'Mods'), (Join-Path $stage 'Plugins'), (Join-Path $stage 'UserLibs'), (Join-Path $stage 'LICENSES') | Out-Null
     Copy-Item $modDll (Join-Path $stage 'Mods')
+    # Readable without loading the mod DLL: the updater compares releases against it before the game starts.
+    Set-Content -Path (Join-Path $stage 'Mods\CMS21-Together.version') -Value $version -Encoding utf8
+    Copy-Item $pluginDll (Join-Path $stage 'Plugins')
+    Copy-Item $updaterDll (Join-Path $stage 'Plugins')
     Copy-Item (Join-Path $root 'Libs\Facepunch.Steamworks.Win64.dll'), (Join-Path $root 'Libs\steam_api64.dll') (Join-Path $stage 'UserLibs')
     Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'NOTICE.md'), (Join-Path $root 'LICENSE') $stage
     Copy-Item (Join-Path $root 'install.ps1'), (Join-Path $root 'Install.bat'), (Join-Path $root 'uninstall.ps1') $stage
@@ -142,13 +158,23 @@ if ($Package) {
     if (Test-Path $zip) { Remove-Item $zip -Force }
     Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip
     Remove-Item $stage -Recurse -Force
-    Write-Host "Packaged $zip" -ForegroundColor Green
+    # Published with the release: the updater downloads the zip and refuses it unless this hash matches.
+    $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+    $sha = "$zip.sha256"
+    Set-Content -Path $sha -Value ("{0}  {1}" -f $hash, (Split-Path $zip -Leaf)) -Encoding ascii
+    Write-Host "Packaged $zip ($sha)" -ForegroundColor Green
 }
 
 if ($Deploy) {
     $mods = Join-Path $GamePath 'Mods'
     if (-not (Test-Path $mods)) { throw "'$mods' not found. Is MelonLoader installed in '$GamePath'?" }
     Copy-Item $modDll $mods -Force
+    $version = (Select-String -Path (Join-Path $root 'MainMod.cs') -Pattern 'PLUS_VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+    Set-Content -Path (Join-Path $mods 'CMS21-Together.version') -Value $version -Encoding utf8
+    $plugins = Join-Path $GamePath 'Plugins'
+    New-Item -ItemType Directory -Force $plugins | Out-Null
+    Copy-Item $pluginDll $plugins -Force
+    Copy-Item $updaterDll $plugins -Force
     Write-Host "Deployed $modDll -> $mods" -ForegroundColor Green
 }
 

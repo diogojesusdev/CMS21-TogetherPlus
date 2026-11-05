@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,7 @@ using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Data.Vanilla.Cars;
 using MelonLoader;
 using UnityEngine;
+using UnhollowerBaseLib;
 using CMS21Together.Shared;
 
 namespace CMS21Together.ClientSide.Data.Garage.Car;
@@ -69,17 +70,34 @@ public static class CarSpawnManager
 			yield return new WaitForEndOfFrame();
 
 			// The game's copy of the car can be half-written for a frame or two: try a few times instead of losing the car.
+			var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
+			if (cars == null)
+			{
+				Log.Error($"[CarSpawnManager->LoadJobCar] The profile has no car array; {name} (loader {carLoaderID}) could not be sent.");
+				yield break;
+			}
+
+			var preferredIndex = Helper.GetIndexFromCarLoaderName(carLoader.name);
+			var index = FindGarageIndex(cars, name, preferredIndex);
+			if (index != preferredIndex)
+				Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
+			if ((uint)index >= (uint)cars.Length)
+			{
+				Log.Error($"[CarSpawnManager->LoadJobCar] {name} has no garage slot (lookup {preferredIndex} of {cars.Length}); it could not be sent.");
+				yield break;
+			}
+
 			ModNewCarData modCarData = null;
 			for (var attempt = 1; attempt <= 3 && modCarData == null; attempt++)
 			{
 				try
 				{
-					var carData = GameManager.Instance.GameDataManager.CurrentProfileData.carsInGarage[Helper.GetIndexFromCarLoaderName(carLoader.name)];
+					var carData = cars[index];
 					modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
 				}
 				catch (Exception ex)
 				{
-					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}) failed, attempt {attempt}/3: {(attempt == 3 ? ex.ToString() : ex.Message)}");
+					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}, slot {index}) failed, attempt {attempt}/3: {(attempt == 3 ? ex.ToString() : ex.Message)}");
 				}
 				if (modCarData == null)
 				{
@@ -97,6 +115,31 @@ public static class CarSpawnManager
 
 			Log.Info($"[Car] Job car {name} (loader {carLoaderID}) sent to the other players.");
 			ClientSend.LoadCarPacket(modCarData, carLoaderID);
+		}
+	}
+
+	/// <summary>
+	/// The game's garage slot for a car: the loader-name lookup when it points at the right car, otherwise a scan by
+	/// car name. A freshly loaded job car has been reported in the wrong slot, and one bad lookup must not lose it.
+	/// </summary>
+	private static int FindGarageIndex(Il2CppReferenceArray<NewCarData> cars, string carName, int preferred)
+	{
+		if (cars == null) return -1;
+		if ((uint)preferred < (uint)cars.Length && HoldsCar(cars[preferred], carName)) return preferred;
+		for (var i = 0; i < cars.Length; i++)
+			if (i != preferred && HoldsCar(cars[i], carName)) return i;
+		return (uint)preferred < (uint)cars.Length ? preferred : -1;
+	}
+
+	private static bool HoldsCar(NewCarData data, string carName)
+	{
+		try
+		{
+			return data != null && string.Equals(data.carToLoad, carName, StringComparison.Ordinal);
+		}
+		catch (Exception)
+		{
+			return false;
 		}
 	}
 

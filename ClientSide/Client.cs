@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using CMS21Together.ClientSide.Data;
 using CMS21Together.ClientSide.Data.Garage;
@@ -13,6 +13,7 @@ using CMS21Together.Shared.Locks;
 using CMS21Together.Shared.Net;
 using CMS21Together.Shared.Persistence;
 using CMS21Together.Shared.Steam;
+using CMS21Together.Shared.Updates;
 using Steamworks;
 using UnityEngine;
 using SceneManager = UnityEngine.SceneManagement.SceneManager;
@@ -241,6 +242,32 @@ public class Client
 
 	public void OnConnectedInvoke() => OnConnected?.Invoke();
 
+	/// <summary>
+	/// The host refused the join because it runs another Together+ version: remember the host's version so the updater
+	/// installs exactly that one on the next launch (the DLL cannot be swapped while the game runs).
+	/// </summary>
+	private static void NoteVersionMismatch(string reason)
+	{
+		var hostVersion = VersionText.HostVersionIn(reason);
+		if (hostVersion == null) return;
+		if (VersionText.AreEqual(hostVersion, MainMod.PLUS_VERSION))
+		{
+			Log.Warn($"[Update] The host rejected the join while reporting the same version ({hostVersion}). Rejoin, or run the installer again on both sides.");
+			return;
+		}
+
+		Log.Info($"[Update] The host runs Together+ {hostVersion}; this game runs {MainMod.PLUS_VERSION}.");
+		try
+		{
+			UpdateFiles.WriteRequest(PlusPaths.Root, hostVersion);
+			Log.Info($"[Update] Restart the game: Together+ will download and install {hostVersion} before loading, to match the host.");
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Update] Could not save the version to install: {ex.Message}. Run install.ps1 and choose the host's version.");
+		}
+	}
+
 	private void OnNetConnected()
 	{
 		ClientData.UserData.playerID = net.SlotId;
@@ -253,6 +280,7 @@ public class Client
 	private void OnNetDisconnected(string reason)
 	{
 		Log.Info($"[Client] Connection ended: {reason}");
+		NoteVersionMismatch(reason);
 		var inMenu = IsMenuActive();
 		Cleanup();
 		if (inMenu)
