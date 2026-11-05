@@ -81,3 +81,6 @@ In progress. Batch results and deviations are recorded at the end of this file.
 - **Batch 2 (rc20):** new `NetProtocolTests` (hello/welcome/reason/timestamp/key comparison/stall clock),
   `ReplicaWireTests` (every layout and every rejection), `PlusPathsTests`, and the `PurchaseLinker` gaps
   (`Reset`, ignored transactions, one undo failing). 2,676 tests green.
+- **Batch 3 (rc21):** new `SourceInvariantTests`: IL2CPP indexer writes, direct `MelonLogger` use, installer scripts
+  BOM/ASCII, installer still ships both plugins, build still writes the `.sha256`, the `NetHost` rejection still
+  parses through `VersionText.HostVersionIn`, and `PacketTypes` has no explicit numbers. 2,683 tests green.
