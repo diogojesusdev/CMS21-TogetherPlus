@@ -128,6 +128,7 @@
         <Compile Include="Shared\Data\QuaternionSerializable.cs" />
         <Compile Include="Shared\Data\UICustomPanelType.cs" />
         <Compile Include="Shared\Data\UserData.cs" />
+        <Compile Include="Shared\Data\Vanilla\Cars\CarDataReader.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBodyPartData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBonusPartData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModCarFluid.cs" />
@@ -207,6 +208,7 @@
         <Compile Include="Shared\MelonLogSink.cs" />
         <Compile Include="Shared\SteamworksUtils.cs" />
         <Compile Include="Shared\Steam\SteamTransport.cs" />
+        <Compile Include="Shared\SafeMemory.cs" />
         <Compile Include="Shared\SidecarRules.cs" />
         <Compile Include="Shared\PlayerNames.cs" />
         <Compile Include="Shared\Identity.cs" />

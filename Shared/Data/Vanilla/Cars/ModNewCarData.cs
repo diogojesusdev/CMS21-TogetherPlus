@@ -59,6 +59,8 @@ public class ModNewCarData
 			if (newCarData.BodyPartsData != null)
 				BodyPartsData = CopyList(newCarData.BodyPartsData, part => new ModBodyPartData(part), nameof(BodyPartsData));
 
+			if (Log.IsEnabled(LogLevel.Debug)) Log.Debug("[ModNewCarData] body parts read; reading bonus parts, car info and engine data.");
+
 			if (newCarData.BonusPartsData != null) 
 				BonusPartsData = new ModBonusPartsData(newCarData.BonusPartsData);
 
@@ -86,6 +88,8 @@ public class ModNewCarData
 			factoryPaintType = (ModPaintType)newCarData.factoryPaintType;
 			finalDriveRatio = newCarData.finalDriveRatio;
 
+			if (Log.IsEnabled(LogLevel.Debug)) Log.Debug("[ModNewCarData] engine read; reading fluids, wheel arrays, licence plates and paint.");
+
 			FluidsData = new ModFluidsData(newCarData.FluidsData);
 
 			gearRatio = newCarData.gearRatio?.ToList();
@@ -104,12 +108,16 @@ public class ModNewCarData
 
 			PaintData = new ModPaintData(newCarData.PaintData);
 
+			if (Log.IsEnabled(LogLevel.Debug)) Log.Debug("[ModNewCarData] paint read; reading the part list.");
+
 			if (newCarData.PartData != null)
 				PartData = CopyList(newCarData.PartData, part => new ModPartData(part), nameof(PartData));
 
 			rimsSize = newCarData.rimsSize?.ToList();
 			tiresET = newCarData.tiresET?.ToList();
 			tiresSize = newCarData.tiresSize?.ToList();
+
+			if (Log.IsEnabled(LogLevel.Debug)) Log.Debug("[ModNewCarData] part list read; reading tools and alignment data.");
 
 			ToolsData = new ModToolsData(newCarData.TooolsData);
 

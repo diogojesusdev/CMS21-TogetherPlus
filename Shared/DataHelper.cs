@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using CMS21Together.Shared.Data.Vanilla.Cars;
 using MelonLoader;
 using UnhollowerBaseLib;
 using UnityEngine;
@@ -76,9 +77,9 @@ public class DataHelper // TODO: Finish This!
 		copy.carLiftersData = data.carLiftersData; //  TODO: check this
 		copy.carLoaderData = data.carLoaderData; //  TODO: check this
 		copy.carsInGarage = new Il2CppReferenceArray<NewCarData>(data.carsInGarage.Length);
-		for (var i = 0; i < data.carsInGarage.Length; i++) Il2CppArrays.Set(copy.carsInGarage, i, Copy(data.carsInGarage[i]));
+		for (var i = 0; i < data.carsInGarage.Length; i++) Il2CppArrays.Set(copy.carsInGarage, i, Copy(CarDataReader.At(data.carsInGarage, i)));
 		copy.carsOnParking = new Il2CppReferenceArray<NewCarData>(data.carsOnParking.Length);
-		for (var i = 0; i < data.carsOnParking.Length; i++) Il2CppArrays.Set(copy.carsOnParking, i, Copy(data.carsOnParking[i]));
+		for (var i = 0; i < data.carsOnParking.Length; i++) Il2CppArrays.Set(copy.carsOnParking, i, Copy(CarDataReader.At(data.carsOnParking, i)));
 		copy.FinishedTutorial = data.FinishedTutorial;
 		copy.garageCustomizationData = data.garageCustomizationData; //  TODO: check this
 		copy.globalDataWrapper = data.globalDataWrapper; //  TODO: check this

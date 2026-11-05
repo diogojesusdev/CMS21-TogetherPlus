@@ -1,4 +1,4 @@
-﻿// Based on desync_Dyno.cs, desync_HeadlampAlignment.cs, desync_WheelsAlignment.cs, desync_Wheelbalancer.cs and
+// Based on desync_Dyno.cs, desync_HeadlampAlignment.cs, desync_WheelsAlignment.cs, desync_Wheelbalancer.cs and
 // desync_Tuning.cs from FixForTogether by TogetherFixer (https://github.com/Stevii001100/Fix-For-CMS21-Together),
 // custom non-commercial licence. Modified for Together+: same patch targets and payloads, sent on the Together+
 // feature channel with station/car locks; game properties instead of raw memory offsets; the minigame skip is the
@@ -10,6 +10,7 @@ using CMS.UI.Windows;
 using CMS21Together.ClientSide.Data;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Data.Vanilla.Cars;
 using CMS21Together.Shared.Features;
 using CMS21Together.Shared.Locks;
 using HarmonyLib;
@@ -34,7 +35,8 @@ internal static class StationCars
 	public static NewCarData Data(CarLoader loader)
 	{
 		var index = Helper.GetIndexFromCarLoaderName(loader.name);
-		return Singleton<GameManager>.Instance.GameDataManager.CurrentProfileData.carsInGarage[index];
+		// Through the reader: the array class can cache the wrong NewCarData stride (see CarDataReader).
+		return CarDataReader.At(Singleton<GameManager>.Instance.GameDataManager.CurrentProfileData.carsInGarage, index);
 	}
 }
 

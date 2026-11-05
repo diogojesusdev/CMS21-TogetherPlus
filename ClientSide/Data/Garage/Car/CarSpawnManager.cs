@@ -69,7 +69,10 @@ public static class CarSpawnManager
 			yield return new WaitForEndOfFrame();
 			yield return new WaitForEndOfFrame();
 
-			// The game's copy of the car can be half-written for a frame or two: try a few times instead of losing the car.
+			// The game's copy of the car can be half-written for a frame or two: try a few times instead of losing the
+			// car. Read it through CarDataReader, never through the raw array: the array class caches its element
+			// stride in a static constructor that can run before NewCarData's, and a stale pointer inside the struct
+			// takes the game down in il2cpp_object_get_class (see the car order crash report).
 			var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
 			if (cars == null)
 			{
@@ -78,22 +81,30 @@ public static class CarSpawnManager
 			}
 
 			var preferredIndex = Helper.GetIndexFromCarLoaderName(carLoader.name);
-			var index = FindGarageIndex(cars, name, preferredIndex);
-			if (index != preferredIndex)
-				Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
-			if ((uint)index >= (uint)cars.Length)
+			var index = CarDataReader.FindSlot(cars, name, preferredIndex);
+			if (index < 0)
 			{
-				Log.Error($"[CarSpawnManager->LoadJobCar] {name} has no garage slot (lookup {preferredIndex} of {cars.Length}); it could not be sent.");
+				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) is not in the garage array; it could not be sent. The slots hold: {CarDataReader.Describe(cars)}");
 				yield break;
 			}
+			if (index != preferredIndex)
+				Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
 
 			ModNewCarData modCarData = null;
 			for (var attempt = 1; attempt <= 3 && modCarData == null; attempt++)
 			{
 				try
 				{
-					var carData = cars[index];
-					modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
+					if (CarDataReader.TryRead(cars, index, out var carData, out var problem))
+					{
+						modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
+					}
+					else
+					{
+						Log.Warn(problem == null
+							? $"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not spawned in the profile yet, attempt {attempt}/3."
+							: $"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not readable yet, attempt {attempt}/3: {problem}");
+					}
 				}
 				catch (Exception ex)
 				{
@@ -109,37 +120,12 @@ public static class CarSpawnManager
 			}
 			if (modCarData == null)
 			{
-				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) could not be sent to the other players.");
+				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) could not be read and was not sent to the other players.");
 				yield break;
 			}
 
 			Log.Info($"[Car] Job car {name} (loader {carLoaderID}) sent to the other players.");
 			ClientSend.LoadCarPacket(modCarData, carLoaderID);
-		}
-	}
-
-	/// <summary>
-	/// The game's garage slot for a car: the loader-name lookup when it points at the right car, otherwise a scan by
-	/// car name. A freshly loaded job car has been reported in the wrong slot, and one bad lookup must not lose it.
-	/// </summary>
-	private static int FindGarageIndex(Il2CppReferenceArray<NewCarData> cars, string carName, int preferred)
-	{
-		if (cars == null) return -1;
-		if ((uint)preferred < (uint)cars.Length && HoldsCar(cars[preferred], carName)) return preferred;
-		for (var i = 0; i < cars.Length; i++)
-			if (i != preferred && HoldsCar(cars[i], carName)) return i;
-		return (uint)preferred < (uint)cars.Length ? preferred : -1;
-	}
-
-	private static bool HoldsCar(NewCarData data, string carName)
-	{
-		try
-		{
-			return data != null && string.Equals(data.carToLoad, carName, StringComparison.Ordinal);
-		}
-		catch (Exception)
-		{
-			return false;
 		}
 	}
 
