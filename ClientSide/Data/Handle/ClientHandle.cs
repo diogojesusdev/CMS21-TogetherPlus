@@ -475,30 +475,4 @@ public static class ClientHandle
 
 		packet.Dispose();
 	}
-
-	public static void CarEngineSoundPacket(Packet packet)
-	{
-		var playerID = packet.ReadInt();
-		var carLoaderID = packet.ReadInt();
-		var isPlaying = packet.Read<bool>();
-		var rpm = packet.Read<float>();
-
-		// Business Logic: Play/stop engine sound for remote player's car
-		if (GameData.Instance == null || GameData.Instance.carLoaders == null) return;
-		if (carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length) return;
-
-		var carLoader = GameData.Instance.carLoaders[carLoaderID];
-		if (carLoader == null) return;
-
-		// Business Logic: Find AudioSource component on car and play/stop engine sound
-		// Observation: Car engine sounds are typically on the car's AudioSource component
-		// Note: Temporarily disabled due to AudioModule reference issues - will be re-enabled when AudioModule DLL is available
-		// TODO: Re-enable engine sound playback when UnityEngine.AudioModule.dll is added to project references
-		
-		// Business Logic: For now, we'll skip engine sound playback to avoid compilation errors
-		// The engine sound synchronization can be implemented later when the AudioModule reference is available
-		Log.Debug($"[ClientHandle->CarEngineSoundPacket] Engine sound sync received for car {carLoaderID} (Playing: {isPlaying}, RPM: {rpm}) - AudioModule not available");
-
-		packet.Dispose();
-	}
 }

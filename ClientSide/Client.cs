@@ -431,7 +431,6 @@ public class Client
 		r.Register((int)PacketTypes.features, Features.Features.HandleConfig);
 		r.Register((int)PacketTypes.feature, Features.Features.HandleMessage);
 		r.Register((int)PacketTypes.playerInCar, ClientHandle.PlayerInCarPacket);
-		r.Register((int)PacketTypes.carEngineSound, ClientHandle.CarEngineSoundPacket);
 		return r;
 	}
 }

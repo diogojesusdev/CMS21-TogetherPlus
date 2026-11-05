@@ -119,6 +119,9 @@ public static class EngineStand
 
 	private static IEnumerator HandleEngineStand(ModEngineStand stand)
 	{
+		// The stand this action was for: `useAlt` is a static that the next hover overwrites, and this coroutine
+		// waits up to five seconds before it sends anything (the report's ES-4).
+		var alt = useAlt;
 		yield return new WaitForEndOfFrame();
 		int counter = 0;
 		while (counter++ < 20 && stand.reference.engineGameObject == null)
@@ -134,7 +137,7 @@ public static class EngineStand
 			Vector3Serializable enginePos;
 			enginePos = new Vector3Serializable(stand.reference.engineGameObject.transform.position);
 			stand.position = enginePos;
-			ClientSend.EngineStandSetGroupPacket(stand.engineGroupItem, enginePos, useAlt);
+			ClientSend.EngineStandSetGroupPacket(stand.engineGroupItem, enginePos, alt);
 		}
 		listen = true;
 		

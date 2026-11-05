@@ -191,7 +191,9 @@ public static class ServerHandle
 	public static void RotationPacket(int fromClient, Packet packet)
 	{
 		var _rotation = packet.Read<QuaternionSerializable>();
-		ServerData.Instance.connectedClients[fromClient].rotation = _rotation;
+		// Same as the position handler: a packet from a slot the host no longer has (a disconnect in flight) is ignored.
+		if (!ServerData.Instance.connectedClients.TryGetValue(fromClient, out var mover)) return;
+		mover.rotation = _rotation;
 
 		ServerSend.RotationPacket(fromClient, _rotation);
 	}
@@ -841,12 +843,6 @@ public static class ServerHandle
 				bool alt = packet.Read<bool>();
 				ServerResyncs.ResyncEngineStand(fromClient, alt);
 				break;
-			case PacketTypes.playerInCar:
-				PlayerInCarPacket(fromClient, packet);
-				break;
-			case PacketTypes.carEngineSound:
-				CarEngineSoundPacket(fromClient, packet);
-				break;
 		}
 	}
 
@@ -856,24 +852,14 @@ public static class ServerHandle
 		var carLoaderID = _packet.ReadInt();
 		
 		// Business Logic: Update player's car state on server
-		if (ServerData.Instance.connectedClients.ContainsKey(fromClient))
+		if (ServerData.Instance.connectedClients.TryGetValue(fromClient, out var player))
 		{
-			ServerData.Instance.connectedClients[fromClient].isInCar = isInCar;
-			ServerData.Instance.connectedClients[fromClient].carLoaderID = carLoaderID;
+			player.isInCar = isInCar;
+			player.carLoaderID = carLoaderID;
 			Log.Debug($"[ServerHandle->PlayerInCarPacket] Player {fromClient} car state: InCar={isInCar}, CarLoaderID={carLoaderID}");
 		}
 		
 		// Business Logic: Broadcast to all clients
 		ServerSend.PlayerInCarPacket(fromClient, isInCar, carLoaderID);
-	}
-
-	public static void CarEngineSoundPacket(int fromClient, Packet _packet)
-	{
-		var carLoaderID = _packet.ReadInt();
-		var isPlaying = _packet.Read<bool>();
-		var rpm = _packet.Read<float>();
-		
-		// Business Logic: Broadcast engine sound state to all clients
-		ServerSend.CarEngineSoundPacket(fromClient, carLoaderID, isPlaying, rpm);
 	}
 }

@@ -318,11 +318,13 @@ public class ServerData
 
 	public void SetPlayerInfo(int id, PlayerInfo info)
 	{
-		connectedClients[id].playerExp = info.playerExp;
-		connectedClients[id].playerLevel = info.playerLevel;
-		connectedClients[id].playerSkillPoints = info.skillPoints;
-		connectedClients[id].position = info.position;
-		connectedClients[id].rotation = info.rotation;
+		// A player-info packet can arrive for a slot that just disconnected: ignore it instead of throwing.
+		if (!connectedClients.TryGetValue(id, out var client)) return;
+		client.playerExp = info.playerExp;
+		client.playerLevel = info.playerLevel;
+		client.playerSkillPoints = info.skillPoints;
+		client.position = info.position;
+		client.rotation = info.rotation;
 	}
 
 	public void SetCarColor(ModColor color)

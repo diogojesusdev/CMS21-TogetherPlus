@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using CMS21Together.ClientSide.Features;
 using CMS21Together.Shared.Features;
 using System.Collections;
@@ -444,7 +444,6 @@ public class Server
 		r.Register((int)PacketTypes.selectedJob, ServerHandle.SelectedJobPacket);
 		r.Register((int)PacketTypes.endJob, ServerHandle.EndJobPacket);
 		r.Register((int)PacketTypes.playerInCar, ServerHandle.PlayerInCarPacket);
-		r.Register((int)PacketTypes.carEngineSound, ServerHandle.CarEngineSoundPacket);
 		return r;
 	}
 }

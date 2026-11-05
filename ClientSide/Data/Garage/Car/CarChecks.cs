@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -34,6 +34,9 @@ public static class CarChecks
 		var data = ClientData.Instance;
 		if (data == null || GameData.Instance == null || !GameLoadHook.IsGameReady()) return null;
 		if (!data.loadedCars.TryGetValue(carLoaderID, out var car) || car == null || !car.isReady || car.CarPartInfo == null) return null;
+		// A car flagged for resync still holds the PartScripts of the scene that was just destroyed: reading them
+		// would touch freed objects (the report's CR-4). Its hash is meaningless until the resync replaces them.
+		if (car.needResync) return null;
 		var parts = new List<PartState>();
 		var info = car.CarPartInfo;
 		foreach (var pair in info.OtherPartsReferences)

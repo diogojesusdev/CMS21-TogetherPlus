@@ -16,14 +16,26 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 [HarmonyPatch]
 public static class PartUpdateHooks
 {
-	public static bool listen = true;
+	/// <summary>
+	/// Frame of the change being applied from the host, or -1. Both fluid postfixes are patched on call paths the game
+	/// nests (`SetLevelAndCondition` reaches `FluidsData.SetLevel` and `FluidData.SetLevel`), so a one-shot flag was
+	/// consumed by the first hook and the second re-sent the applied value (the report's FL-4). A window that lasts
+	/// the whole frame silences every hook of one apply, and cannot be left consumed by a throw.
+	/// </summary>
+	private static int suppressFrame = -1;
+
+	/// <summary>The host's state is being applied here from now until the next frame.</summary>
+	public static void Suppress() => suppressFrame = Time.frameCount;
+
+	private static bool Suppressed => Time.frameCount <= suppressFrame;
+
 	private static readonly LogThrottle Trace = new(20, 5000);
 	
 	[HarmonyPatch(typeof(FluidsData), nameof(FluidsData.SetLevel))]
 	[HarmonyPostfix]
 	public static void SetLevelAltHook(float level, CarFluidType carFluidType, int id, FluidsData __instance)
 	{
-		if (!Client.Instance.isConnected || !listen) {listen = true; return;}
+		if (!Client.Instance.isConnected || Suppressed) return;
 		// Cars of the junkyard, auto salon or barn are not garage cars (their loader ids would hit garage cars).
 		if (SceneManager.CurrentScene() != GameScene.garage) return;
 
@@ -39,7 +51,7 @@ public static class PartUpdateHooks
 	[HarmonyPostfix]
 	public static void SetLevelHook(float level, FluidData __instance)
 	{
-		if (!Client.Instance.isConnected || !listen) {listen = true; return;}
+		if (!Client.Instance.isConnected || Suppressed) return;
 		if (SceneManager.CurrentScene() != GameScene.garage) return;
 
 		if (__instance != null && __instance.CarFluid != null)

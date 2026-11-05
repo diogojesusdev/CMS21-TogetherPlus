@@ -299,16 +299,6 @@ public static class ServerSend
 		}
 	}
 
-	public static void WheelBalancePacket(int fromClient, ModGroupItem item)
-	{
-		using (var packet = new Packet((int)PacketTypes.wheelBalance))
-		{
-			packet.Write(item);
-			SendDataToAll(fromClient, packet);
-		}
-	}
-	
-
 	#region Functions
 
 	private static void SendData(int _toClient, Packet _packet, bool reliable = true)
@@ -580,19 +570,6 @@ public static class ServerSend
 			_packet.Write(carLoaderID);
 			
 			SendDataToAll(fromClient, _packet);
-		}
-	}
-
-	public static void CarEngineSoundPacket(int fromClient, int carLoaderID, bool isPlaying, float rpm)
-	{
-		using (Packet _packet = new Packet((int)PacketTypes.carEngineSound))
-		{
-			_packet.Write(fromClient);
-			_packet.Write(carLoaderID);
-			_packet.Write(isPlaying);
-			_packet.Write(rpm);
-			
-			SendDataToAll(fromClient, _packet, false); // Use UDP for sound sync (non-reliable)
 		}
 	}
 }

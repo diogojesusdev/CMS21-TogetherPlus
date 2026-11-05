@@ -1,6 +1,6 @@
 # Test hardening: contract guards, uncovered codecs, source invariants, decoder fuzz
 
-**Status:** in progress
+**Status:** done in 0.5.0-rc22
 
 ## Goal
 
@@ -87,3 +87,6 @@ In progress. Batch results and deviations are recorded at the end of this file.
 - **Batch 4 (rc22):** new `WireFuzzTests` over all 25 wire decoders (handshake, replica, locks, economy, purchases,
   inventory, feature messages) with empty, constant and 128 random payloads each; every decoder must parse or throw
   `NetFormatException`. No decoder needed a fix. 2,709 tests green.
+**Done.** Four batch releases (rc19..rc22), 2,709 tests (up from 2,589). Deviation: batch 4 found no decoder that
+threw the wrong exception type, so no decoder changed. Still open on purpose: the audited bugs in
+`docs/BUG_AUDIT.md` are untouched, and their regression tests belong with the fix that extracts each rule.

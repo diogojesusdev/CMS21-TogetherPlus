@@ -21,7 +21,6 @@ public static class CarEnterExit
 	{
 		wasInCar = false;
 		lastCarLoaderID = -1;
-		lastEnginePlaying = false;
 	}
 
 	/// <summary>
@@ -112,52 +111,6 @@ public static class CarEnterExit
 			
 			ClientSend.PlayerInCarPacket(currentlyInCar, currentCarLoaderID);
 			Log.Debug($"[CarEnterExit->CheckCarState] Player car state changed: InCar={currentlyInCar}, CarLoaderID={currentCarLoaderID}");
-		}
-
-		// Business Logic: If player is in car, check engine sound state
-		if (currentlyInCar && currentCarLoaderID >= 0)
-		{
-			CheckEngineSound(currentCarLoaderID);
-		}
-	}
-
-	private static bool lastEnginePlaying = false;
-	private static float lastEngineCheckTime = 0f;
-	private static readonly float engineCheckInterval = 0.1f; // Check every 0.1 seconds for smoother sound sync
-
-	/// <summary>
-	/// Checks if the car engine is running and synchronizes the engine sound.
-	/// </summary>
-	private static void CheckEngineSound(int carLoaderID)
-	{
-		if (Time.time - lastEngineCheckTime < engineCheckInterval)
-			return;
-
-		lastEngineCheckTime = Time.time;
-
-		if (GameData.Instance == null || GameData.Instance.carLoaders == null) return;
-		if (carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length) return;
-
-		var carLoader = GameData.Instance.carLoaders[carLoaderID];
-		if (carLoader == null) return;
-
-		// Business Logic: Check if engine sound is playing by checking AudioSource
-		// Observation: Car engine sounds are typically on the car's AudioSource component
-		// Note: Temporarily disabled due to AudioModule reference issues - will be re-enabled when AudioModule DLL is available
-		// TODO: Re-enable engine sound detection when UnityEngine.AudioModule.dll is added to project references
-		bool enginePlaying = false;
-		float rpm = 0f;
-		
-		// Business Logic: For now, we'll skip engine sound detection to avoid compilation errors
-		// The engine sound synchronization can be implemented later when the AudioModule reference is available
-		// This doesn't affect the core functionality of hiding/showing players when they enter/exit cars
-
-		// Business Logic: Only send packet if engine state changed
-		if (enginePlaying != lastEnginePlaying)
-		{
-			lastEnginePlaying = enginePlaying;
-			ClientSend.CarEngineSoundPacket(carLoaderID, enginePlaying, rpm);
-			Log.Debug($"[CarEnterExit->CheckEngineSound] Engine sound state changed: Playing={enginePlaying}, CarLoaderID={carLoaderID}, RPM={rpm}");
 		}
 	}
 }

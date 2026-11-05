@@ -354,16 +354,10 @@ public static class PartsUpdater
 			yield break;
 		}
 
-		PartUpdateHooks.listen = false;
-		try
-		{
-			GameData.Instance.carLoaders[carLoaderID].FluidsData
-				.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
-		}
-		finally
-		{
-			// The hook consumes the flag on the first SetLevel; restore it even when the game call throws.
-			PartUpdateHooks.listen = true;
-		}
+		// Silence both fluid hooks for this frame: the game may reach either or both for one applied change, and
+		// whichever runs second must not send the value back (the report's FL-4).
+		PartUpdateHooks.Suppress();
+		GameData.Instance.carLoaders[carLoaderID].FluidsData
+			.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
 	}
 }

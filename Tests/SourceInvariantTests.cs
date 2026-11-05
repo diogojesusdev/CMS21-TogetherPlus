@@ -123,6 +123,20 @@ public class SourceInvariantTests
 	}
 
 	[Test]
+	public void TheHostNeverReadsAClientSlotItDidNotCheck()
+	{
+		// connectedClients[slot].x throws for a packet that arrives after its player disconnected, and the router counts
+		// it as a handler error towards the 50-error kick. TryGetValue is the pattern every handler should use.
+		var read = new Regex(@"connectedClients\s*\[[^\]\r\n]+\]\s*\.", RegexOptions.Compiled);
+		var offenders = SourceFiles(RepoRoot)
+			.Where(file => file.Contains(Path.Combine("ServerSide") + Path.DirectorySeparatorChar))
+			.SelectMany(file => read.Matches(File.ReadAllText(file)).Cast<Match>().Select(match => $"{Path.GetFileName(file)}: {match.Value}"))
+			.ToList();
+
+		Assert.That(offenders, Is.Empty, "use connectedClients.TryGetValue before touching a client");
+	}
+
+	[Test]
 	public void TheHandshakeRejectionStillParsesAsTheHostsVersion()
 	{
 		// NetHost rejects with "Mod version mismatch: host has TogetherPlus-<version>, ..."; the client extracts that
