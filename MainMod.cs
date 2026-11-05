@@ -23,7 +23,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0-rc8";
+		public const string PLUS_VERSION = "0.5.0-rc9";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;
@@ -72,6 +72,19 @@ namespace CMS21Together
 			}
 		}
 		
+		// The incremental GC frees objects stored without a write barrier and crashes the game; Plugins\TogetherPlus.GcFix.dll turns it off.
+		private static void LogGcMode()
+		{
+			try
+			{
+				if (UnityEngine.Scripting.GarbageCollector.isIncremental)
+					Log.Warn("[GC] Incremental GC is on: the game may crash (e.g. when returning to the menu). Run the Together+ installer again to add Plugins\\TogetherPlus.GcFix.dll.");
+				else
+					Log.Info("[GC] Incremental GC is off.");
+			}
+			catch (Exception ex) { Log.Warn("[GC] Could not read the GC mode: " + ex.Message); }
+		}
+
 		public override void OnLateInitializeMelon()
 		{
 			InitializeSteam();
@@ -89,6 +102,7 @@ namespace CMS21Together
 			}
 			ClientSide.Features.Features.Initialize(ClientSide.Features.FeatureList.Create());
 			isModInitialized = true;
+			LogGcMode();
 			Log.Info("Together Mod Initialized!");
 		}
 

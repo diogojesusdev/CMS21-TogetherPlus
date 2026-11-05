@@ -1,5 +1,20 @@
 # Agent instructions: Together+ (CMS21 multiplayer mod)
 
+## MANDATORY: write an implementation plan before implementing
+
+Before implementing **any** feature or fix, create a new folder under `.implementation_plans/` and write the plan there. No exceptions, even for small fixes.
+
+- **Folder name:** `.implementation_plans/<yyyy-mm-dd>-<short-kebab-name>/`, e.g. `2026-11-05-hood-mount-crash/`.
+- **Required file:** `PLAN.md` in that folder, containing:
+  - **Goal:** the request or bug, quoting the user/issue where possible.
+  - **Findings:** root cause or the relevant code (files, logs, evidence).
+  - **Approach:** what will change and why, plus alternatives rejected.
+  - **Files:** the files expected to change.
+  - **Testing:** the tests to add or run, and the in-game checks for the player.
+  - **Status:** planned / in progress / done (with version, e.g. `done in 0.5.0-rc9`), plus any follow-ups.
+- **No approval needed:** go from plan to implementation straight away. The plan **must** still be written first, then kept up to date (set the status, note deviations) and committed with the change.
+- **Ideas backlog:** ideas not being worked on yet go in `.implementation_plans/TODO.md`. When starting one, move it into its own plan folder and remove it from `TODO.md`.
+
 ## MANDATORY: version, commit and push after EVERY change
 
 This is not optional. After **every** change or batch of changes, however small (code, logging, docs, build scripts):
