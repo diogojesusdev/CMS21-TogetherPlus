@@ -30,10 +30,46 @@ This is not optional. After **every** change or batch of changes, however small 
 3. **Commit** with a clear message (what changed and why, version in the subject, e.g. `fix: hood mount crash (0.5.0-rc8)`), ending with:
    `Co-authored-by: Copilot App <223556219+Copilot@users.noreply.github.com>`
 4. **Push** to `main` on `diogojesusdev/CMS21-TogetherPlus` (see the branch workflow below).
-5. **Publish a GitHub pre-release** for the new version (`v<PLUS_VERSION>`) with the zip, `Install.bat`, `install.ps1` and `uninstall.ps1` as assets. In the notes, say "Every player needs rcN" and list the changes in player language.
+5. **Publish a GitHub pre-release** for the new version (`v<PLUS_VERSION>`) with **all five** assets:
+   `dist\TogetherPlus-<version>.zip`, `dist\TogetherPlus-<version>.zip.sha256`, `Install.bat`, `install.ps1` and
+   `uninstall.ps1`. The `.sha256` is **not optional**: the updater refuses a release without it (see
+   "Release assets and auto-update" below). In the notes, say "Every player needs rcN" and list the changes in
+   player language.
+   - After publishing, verify it: `gh release view v<PLUS_VERSION> --json assets` must list all five, and
+     `(Get-FileHash dist\TogetherPlus-<version>.zip).Hash` must equal the hash inside the `.sha256` asset.
 6. **Deploy to the local game** when the maintainer plays on this machine: `.\build.ps1 -Deploy -SkipTests`. Then check that the hash of `<game>\Mods\CMS21-Together.dll` matches `bin\Release\CMS21-Together.dll`.
 
 Do not finish a task with uncommitted, unpushed or unversioned work. If a push fails, fix it (see Troubleshooting) and retry. Do not leave it for the user.
+
+## Release assets and auto-update
+
+The updater (`Plugin/Updater/Updater.cs`) runs before the mod on the next launch and makes the release install
+itself. Every push that publishes a release must therefore keep these rules:
+
+- **The `.sha256` asset is mandatory.** The updater looks for `TogetherPlus-<version>.zip` and
+  `TogetherPlus-<version>.zip.sha256`; if the `.sha256` is missing it logs
+  "has no ...zip.sha256; refusing to install it" and every player stays on the old build. `build.ps1 -Package`
+  already writes `dist\TogetherPlus-<version>.zip.sha256` — attach it with the zip, do not skip it.
+- **The zip must contain `Mods/CMS21-Together.dll`** (the updater refuses anything else) and the same version string.
+- **Tag and commit:** the release tag `v<PLUS_VERSION>` must point at the pushed `main` commit. After pushing,
+  check `git ls-remote https://github.com/diogojesusdev/CMS21-TogetherPlus.git refs/heads/main` matches
+  `public/main`, and `gh release view v<PLUS_VERSION> --json tagName` shows the tag.
+- **Who updates automatically:** only players with `Plugins\TogetherPlus.Updater.dll`, `CheckOnStartup = true` and
+  `Channel = prerelease` (both are the defaults), and with GitHub reachable. Players on `stable`/`off`, or who
+  installed manually without the updater, need `install.ps1` or the zip. The updater cannot replace itself or
+  `TogetherPlus.GcFix.dll` — those only change via the installer.
+- **When:** the check is at **launch**, not inside a running session, and the game restarts on the new version in
+  the same launch. A version that fails to start is rolled back on the next launch and not retried automatically.
+- Hosts and clients must both run the new version; the handshake refuses mixed versions.
+
+The full command is:
+
+```
+gh release create v<PLUS_VERSION> --repo diogojesusdev/CMS21-TogetherPlus --target main --prerelease `
+  --title "Together+ <PLUS_VERSION>" --notes-file dist\<version>-notes.md `
+  dist\TogetherPlus-<version>.zip dist\TogetherPlus-<version>.zip.sha256 Install.bat install.ps1 uninstall.ps1
+```
+
 
 ## Branch workflow
 
