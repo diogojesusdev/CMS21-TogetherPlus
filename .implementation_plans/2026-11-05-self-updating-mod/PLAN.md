@@ -1,6 +1,6 @@
 # Self-updating mod
 
-**Status:** done in 0.5.0-rc12 (end-to-end release test still to run after publishing rc12).
+**Status:** done in 0.5.0-rc13. End-to-end tested against a real release (see Testing).
 
 ## Goal
 
@@ -71,3 +71,19 @@ TODO item: "MelonLoader can't swap a mod while the game is running, but it can u
 - The updater and the GC plugin are only replaced by the installer (they are loaded when a check runs).
 - A future protocol change can use `request.txt` to pin clients to the host's version; the server already sends its
   version in the rejection.
+
+## End-to-end test (2026-11-05, rc12 release, rc13 fixes)
+
+Installed rc11 (sidecar) with the rc12 updater, started the game: the updater downloaded rc12, the SHA-256 matched,
+the mod was replaced and MelonLoader loaded the new DLL in the same launch; the log showed
+`[Update] Together+ 0.5.0-rc12 installed (was 0.5.0-rc11)` and the mod reached the menu.
+
+That test found two real bugs, fixed in rc13:
+
+1. The installed version was read before the rollback check, so after a rollback the same launch still compared against
+   the new version and skipped re-installing. The version is now read after the recovery step.
+2. A game that quits before the mod loads (on this launcher, the extra instance Steam starts) was treated as "the new
+   version does not start": it rolled back and put the version on the failed list, where it would never be offered
+   again. Now a version is only blamed when another version had already started on this machine (a started marker
+   exists and differs); otherwise the update is kept until a start succeeds. A successful start also clears its own
+   failed entry (`UpdateFiles.ClearFailed`).

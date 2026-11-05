@@ -75,11 +75,12 @@ public class UpdaterPlugin : MelonPlugin
 
 		var gameDirectory = MelonUtils.GameDirectory ?? MelonUtils.BaseDirectory;
 		var plusRoot = CMS21Together.Shared.PlusPaths.Root;
-		var installed = UpdateFiles.ReadInstalledVersion(gameDirectory);
 		var selection = (channel?.Value ?? "prerelease").Trim().ToLowerInvariant();
 
 		RecoverFailedUpdate(gameDirectory, plusRoot);
 
+		// Read after the recovery: a rollback changes the installed version.
+		var installed = UpdateFiles.ReadInstalledVersion(gameDirectory);
 		if (installed == null)
 		{
 			LoggerInstance.Msg("[Update] The installed version is unknown (the mod has not run yet); skipping the check.");
@@ -130,7 +131,12 @@ public class UpdaterPlugin : MelonPlugin
 		Install(release, version, installed, forced, gameDirectory, plusRoot);
 	}
 
-	/// <summary>Puts the previous files back when the version installed last time never finished starting.</summary>
+	/// <summary>
+	/// Puts the previous files back when the version installed last time never finished starting. A version is only
+	/// blamed when another version had already started successfully on this machine: a game that quits before the mod
+	/// loads (a second instance, a missing dependency) says nothing about the update, and rolling back would fight the
+	/// next successful start.
+	/// </summary>
 	private void RecoverFailedUpdate(string gameDirectory, string plusRoot)
 	{
 		var pending = UpdateFiles.ReadPending(plusRoot);
@@ -140,6 +146,14 @@ public class UpdaterPlugin : MelonPlugin
 		{
 			UpdateFiles.ClearPending(plusRoot);
 			LoggerInstance.Msg($"[Update] Together+ {pending} started successfully.");
+			return;
+		}
+
+		if (UpdateFiles.ReadStarted(plusRoot) == null)
+		{
+			// No version has started here yet, so there is nothing to compare against: keep the update and let the
+			// next successful start clear it. The installer repairs an installation that never starts.
+			LoggerInstance.Msg($"[Update] Together+ {pending} has not started yet; keeping it until it does.");
 			return;
 		}
 

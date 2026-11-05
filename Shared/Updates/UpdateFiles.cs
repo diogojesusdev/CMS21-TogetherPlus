@@ -103,6 +103,24 @@ public static class UpdateFiles
 		return false;
 	}
 
+	/// <summary>A version that started successfully is not a failed one any more (it may have failed once for an
+	/// unrelated reason: a second game instance, a missing file).</summary>
+	public static void ClearFailed(string plusRoot, string version)
+	{
+		if (string.IsNullOrEmpty(version)) return;
+		var failed = new List<string>(ReadFailed(plusRoot));
+		if (failed.RemoveAll(entry => VersionText.AreEqual(entry, version)) == 0) return;
+		try
+		{
+			Directory.CreateDirectory(StateDirectory(plusRoot));
+			File.WriteAllLines(FailedPath(plusRoot), failed);
+		}
+		catch (Exception)
+		{
+			// The list is advisory: keeping a stale entry only means the update is offered again.
+		}
+	}
+
 	/// <summary>Reads a version file; null when it is absent or does not hold a version.</summary>
 	public static string ReadVersion(string path)
 	{

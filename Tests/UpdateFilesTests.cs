@@ -129,6 +129,19 @@ public class UpdateFilesTests
 	}
 
 	[Test]
+	public void AVersionThatStartsIsNoLongerFailed()
+	{
+		var plus = Path.Combine(root, "Plus");
+		UpdateFiles.MarkFailed(plus, "0.5.0-rc12");
+		UpdateFiles.MarkFailed(plus, "0.5.0-rc13");
+
+		UpdateFiles.ClearFailed(plus, "v0.5.0-rc12");
+
+		Assert.IsFalse(UpdateFiles.HasFailed(plus, "0.5.0-rc12"));
+		Assert.IsTrue(UpdateFiles.HasFailed(plus, "0.5.0-rc13"));
+	}
+
+	[Test]
 	public void AGarbageMarkerIsNotAVersion()
 	{
 		var plus = Path.Combine(root, "Plus");
