@@ -29,6 +29,7 @@ public static class CarDataReader
 	private static readonly int ObjectHeader = 2 * IntPtr.Size; // Il2CppObject: klass, monitor
 	private static readonly int StringHeader = 2 * IntPtr.Size; // Il2CppString: klass, monitor, then length
 	private static readonly int StringLengthOffset = 2 * IntPtr.Size;
+	private static readonly int StringCharsOffset = 2 * IntPtr.Size + 4; // ... and the chars follow the length
 	private const int MaxStringLength = 512;
 
 	private static readonly object Gate = new object();
@@ -88,9 +89,15 @@ public static class CarDataReader
 			return false;
 		}
 
-		if (!TryReadString(namePointer, out var name) || string.IsNullOrEmpty(name))
+		if (!TryReadString(namePointer, out var name))
 		{
 			problem = "carToLoad is not a readable string";
+			return false;
+		}
+
+		if (string.IsNullOrEmpty(name))
+		{
+			problem = null; // a slot the game has reset to "", not a broken one
 			return false;
 		}
 
@@ -127,7 +134,15 @@ public static class CarDataReader
 		name = null;
 		if (!Prepare(out _)) return false;
 		if (!TrySlot(cars, index, out var slot, out _)) return false;
-		return TryReadString(ReadPointer(slot, offCarToLoad), out name);
+
+		var pointer = ReadPointer(slot, offCarToLoad);
+		if (pointer == IntPtr.Zero)
+		{
+			name = string.Empty; // a slot the game has not filled in, which is readable and simply has no car
+			return true;
+		}
+
+		return TryReadString(pointer, out name);
 	}
 
 	/// <summary>
@@ -340,7 +355,7 @@ public static class CarDataReader
 
 		var length = Marshal.ReadInt32(pointer + StringLengthOffset);
 		if (length < 0 || length > MaxStringLength) return false;
-		if (!SafeMemory.IsReadable(pointer + StringHeader, (length + 1) * 2)) return false;
+		if (!SafeMemory.IsReadable(pointer + StringCharsOffset, (length + 1) * 2)) return false;
 
 		value = IL2CPP.Il2CppStringToManaged(pointer);
 		return value != null;

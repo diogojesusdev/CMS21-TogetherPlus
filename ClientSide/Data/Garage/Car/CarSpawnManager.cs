@@ -17,6 +17,11 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 
 public static class CarSpawnManager
 {
+	// The game saves the car into the profile asynchronously; on a slow frame that takes seconds, not frames.
+	private const float SendWindowSeconds = 20f;
+	private const float PollSeconds = 0.25f;
+	private const float ResaveSeconds = 2f;
+
 	public static IEnumerator LoadCar(NewCarData carData, int carLoaderID, int placeNo)
 	{
 		if (ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) yield break;
@@ -80,62 +85,72 @@ public static class CarSpawnManager
 			while (!ClientData.Instance.loadedCars[carLoaderID].isReady)
 				yield return new WaitForSeconds(0.25f);
 			yield return new WaitForEndOfFrame();
-			carLoader.SaveCarToFile();
-			yield return new WaitForEndOfFrame();
-			yield return new WaitForEndOfFrame();
 
-			// The game's copy of the car can be half-written for a frame or two: try a few times instead of losing the
-			// car. Read it through CarDataReader, never through the raw array: the array class caches its element
-			// stride in a static constructor that can run before NewCarData's, and a stale pointer inside the struct
-			// takes the game down in il2cpp_object_get_class (see the car order crash report).
-			var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
-			if (cars == null)
-			{
-				Log.Error($"[CarSpawnManager->LoadJobCar] The profile has no car array; {name} (loader {carLoaderID}) could not be sent.");
-				yield break;
-			}
-
+			// The game writes the car into the profile asynchronously, so carsInGarage does not hold it for a while
+			// after the loader says the car is loaded. Looking exactly once (and giving up when the slot was still
+			// empty) is why job cars stopped being sent. Poll until it turns up instead, re-asking for the save.
 			var preferredIndex = Helper.GetIndexFromCarLoaderName(carLoader.name);
-			var index = CarDataReader.FindSlot(cars, name, preferredIndex);
-			if (index < 0)
-			{
-				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) is not in the garage array; it could not be sent. The slots hold: {CarDataReader.Describe(cars)}");
-				yield break;
-			}
-			if (index != preferredIndex)
-				Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
-
 			ModNewCarData modCarData = null;
-			for (var attempt = 1; attempt <= 3 && modCarData == null; attempt++)
+			var lastSlots = "(not read)";
+			var sinceSave = float.MaxValue;
+			var warned = false;
+
+			for (var waited = 0f; modCarData == null && waited < SendWindowSeconds; waited += PollSeconds)
 			{
+				if (carLoader == null || !carLoader.IsCarLoaded()) yield break;
+				if (!ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) yield break;
+
+				// Ask the game to write the car out again if the last request has had time to finish.
+				if (sinceSave >= ResaveSeconds)
+				{
+					Guard.Run("save the job car into the profile", () => carLoader.SaveCarToFile());
+					sinceSave = 0f;
+				}
+
+				yield return new WaitForSeconds(PollSeconds);
+				sinceSave += PollSeconds;
+
+				// Read it through CarDataReader, never through the raw array: the array class caches its element
+				// stride in a static constructor that can run before NewCarData's, and a stale pointer inside the
+				// struct takes the game down in il2cpp_object_get_class (see the car order crash report).
+				var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
+				if (cars == null)
+				{
+					Log.Error($"[CarSpawnManager->LoadJobCar] The profile has no car array; {name} (loader {carLoaderID}) could not be sent.");
+					yield break;
+				}
+
+				var index = CarDataReader.FindSlot(cars, name, preferredIndex);
+				if (index < 0)
+				{
+					lastSlots = CarDataReader.Describe(cars);
+					if (!warned && waited >= 2f)
+					{
+						warned = true; // one breadcrumb, not one per poll
+						Log.Info($"[Car] {name} (loader {carLoaderID}) is not in the garage array yet after {waited:0.0}s; still waiting. The slots hold: {lastSlots}");
+					}
+					continue;
+				}
+
+				if (index != preferredIndex)
+					Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
+
 				try
 				{
 					if (CarDataReader.TryRead(cars, index, out var carData, out var problem))
-					{
 						modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
-					}
-					else
-					{
-						Log.Warn(problem == null
-							? $"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not spawned in the profile yet, attempt {attempt}/3."
-							: $"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not readable yet, attempt {attempt}/3: {problem}");
-					}
+					else if (problem != null)
+						Log.Warn($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not readable yet: {problem}");
 				}
 				catch (Exception ex)
 				{
-					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}, slot {index}) failed, attempt {attempt}/3: {(attempt == 3 ? ex.ToString() : ex.Message)}");
-				}
-				if (modCarData == null)
-				{
-					yield return new WaitForSeconds(0.5f);
-					if (carLoader == null || !carLoader.IsCarLoaded()) yield break;
-					carLoader.SaveCarToFile();
-					yield return new WaitForEndOfFrame();
+					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}, slot {index}) failed: {ex.Message}");
 				}
 			}
+
 			if (modCarData == null)
 			{
-				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) could not be read and was not sent to the other players.");
+				Log.Error($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}) never turned up in the garage array within {SendWindowSeconds:0}s and was not sent to the other players. The slots hold: {lastSlots}");
 				yield break;
 			}
 
