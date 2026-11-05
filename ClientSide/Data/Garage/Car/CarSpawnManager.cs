@@ -11,6 +11,7 @@ using MelonLoader;
 using UnityEngine;
 using UnhollowerBaseLib;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Safety;
 
 namespace CMS21Together.ClientSide.Data.Garage.Car;
 
@@ -23,7 +24,21 @@ public static class CarSpawnManager
 		var car = new ModCar(carLoaderID, carData.carToLoad, carData.configVersion, placeNo, carData.customerCar);
 		Log.Info($"[Car] Local load of {carData.carToLoad} on loader {carLoaderID} (place {placeNo}), sending it.");
 		ClientSend.LoadCarPacket(new ModNewCarData(carData, placeNo), carLoaderID);
-		
+
+		// The garage's own car loop starts this before GameLoadHook.CustomLoad has created GameData: wait for it
+		// instead of dereferencing null, and give up if the session ends while waiting.
+		while (GameData.Instance == null || GameData.Instance.carLoaders == null)
+		{
+			if (!Client.Instance.isConnected) yield break;
+			yield return YieldInstructions.WaitForEndOfFrame;
+		}
+		if ((uint)carLoaderID >= (uint)GameData.Instance.carLoaders.Length)
+		{
+			Log.Error($"[CarSpawnManager->LoadCar] {carData.carToLoad} was reported on loader {carLoaderID}, " +
+			          $"but the garage has {GameData.Instance.carLoaders.Length} loaders; its parts stay untracked.");
+			yield break;
+		}
+
 		while (!GameData.Instance.carLoaders[carLoaderID].IsCarLoaded()) yield return YieldInstructions.WaitForEndOfFrame;
 		yield return YieldInstructions.WaitForEndOfFrame;
 		yield return YieldInstructions.WaitForEndOfFrame;
@@ -136,6 +151,29 @@ public static class CarSpawnManager
 
 		yield return new WaitForEndOfFrame();
 
+		// A car we cannot trust is dropped and asked for again: building game objects out of it is how a bad payload
+		// becomes a native crash, which nothing can recover from (see CarPayloadRules).
+		if (data == null)
+		{
+			Log.Warn($"[Car] The car for loader {carLoaderID} was not applied (no data); asking for it again.");
+			ClientSend.ResyncCar(carLoaderID);
+			yield break;
+		}
+
+		if (data.IfBroken(out var broken))
+		{
+			Log.Warn($"[Car] The car for loader {carLoaderID} was not applied ({broken}); asking for it again.");
+			ClientSend.ResyncCar(carLoaderID);
+			yield break;
+		}
+
+		if (GameData.Instance?.carLoaders == null || (uint)carLoaderID >= (uint)GameData.Instance.carLoaders.Length)
+		{
+			Log.Warn($"[Car] The car for loader {carLoaderID} was not applied (no such car loader here); asking for it again.");
+			ClientSend.ResyncCar(carLoaderID);
+			yield break;
+		}
+
 		// The same car again (a resync while it was already being loaded): its parts follow, no second load.
 		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var existing) && existing != null && existing.carID == data.carToLoad)
 		{
@@ -147,7 +185,8 @@ public static class CarSpawnManager
 		var carLoader = GameData.Instance.carLoaders[carLoaderID];
 		carLoader.placeNo = data.carPosition;
 		carLoader.ConfigVersion = data.configVersion;
-		var carData = data.ToGame();
+		var carData = Guard.Try("build the car from the host", () => data.ToGame(), null, () => ClientSend.ResyncCar(carLoaderID));
+		if (carData == null) yield break;
 
 		yield return new WaitForEndOfFrame();
 		

@@ -196,6 +196,33 @@ public class ModNewCarData
 		return result;
 	}
 
+	/// <summary>
+	/// True when this car cannot be handed to the game: the reason is a player-readable phrase for the log. Checked on
+	/// the receiving side before any game object is built from it (a native crash cannot be caught, see CarPayloadRules).
+	/// </summary>
+	public bool IfBroken(out string reason)
+	{
+		reason = CarPayloadRules.Problem(
+			carToLoad,
+			BodyPartsData?.Count ?? 0,
+			PartData?.Count ?? 0,
+			CarPayloadRules.AllPresent(BodyPartsData) && CarPayloadRules.AllPresent(PartData),
+			Widest(wheelsWidth, tiresET, tiresSize, rimsSize),
+			gearRatio?.Count ?? 0);
+
+		return reason != null;
+	}
+
+	/// <summary>The length of the longest of the optional wheel arrays (0 when all are null).</summary>
+	private static int Widest(params List<int>[] arrays)
+	{
+		var widest = 0;
+		foreach (var array in arrays)
+			if (array != null && array.Count > widest)
+				widest = array.Count;
+		return widest;
+	}
+
 	public NewCarData ToGame()
 	{
 		var newData = new NewCarData();

@@ -117,4 +117,21 @@ Alternatives rejected:
 
 ## Status
 
-planned (target 0.5.0-rc25).
+done in 0.5.0-rc25.
+
+## Deviations
+
+- The sync coroutine was renamed `LoadCarFromFile` → `SyncLoadedCar` so it is not mistaken for an overload of the
+  game method it observes.
+- The car-name check moved from `__instance.carToLoad` to the `NewCarData` the hook already read, so it does not
+  depend on the load it now only observes.
+- `CarSpawnManager.LoadCar` also bounds-checks the loader id once `GameData` exists, instead of indexing past the
+  array, because the id can come from the name fallback while `GameData` is still null.
+
+## Follow-ups
+
+- `StationGates.InteriorGate` is a `bool` prefix on `InteriorDetailingToolkitLogic.DoWorkAnim`, which returns
+  `IEnumerator`: same latent null-result shape. Cpp2IL could not dump that caller (the Assembly-CSharp analysis
+  fails for most types), so whether a denial turns into "routine is null" is unverified. Worth a check with the
+  interior detailing toolkit in use by another player.
+- In-game verification on two clients is still manual (the checklist under Testing).

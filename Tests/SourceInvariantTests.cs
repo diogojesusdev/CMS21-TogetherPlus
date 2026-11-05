@@ -158,6 +158,23 @@ public class SourceInvariantTests
 	}
 
 	[Test]
+	public void TheGarageCarLoadHookNeverSkipsTheGamesLoad()
+	{
+		// CarLoader.LoadCarFromFile() is StartCoroutine(LoadCarFromFile(name)). A prefix that returns false on the
+		// (string) overload leaves StartCoroutine with a null enumerator and Unity throws "routine is null", which
+		// ends the garage car loop after the first loader - whose car was already deleted. The hook may only watch.
+		var source = Read(RepoRoot, "ClientSide", "Data", "Garage", "Car", "CarSpawnHooks.cs");
+		var start = source.IndexOf("public static bool LoadCarFromFileHook", StringComparison.Ordinal);
+		Assert.That(start, Is.GreaterThanOrEqualTo(0), "the garage car load hook is gone; update this test");
+
+		var next = source.IndexOf("[Harmony", start, StringComparison.Ordinal);
+		var body = next > start ? source.Substring(start, next - start) : source.Substring(start);
+
+		Assert.That(body, Does.Not.Contain("return false"),
+			"the game starts the enumerator carried by this method: skipping it makes StartCoroutine throw 'routine is null'");
+	}
+
+	[Test]
 	public void ThePacketEnumStaysOrdinal()
 	{
 		// The pinned table in PacketTypesTests only protects the wire if the enum has no explicit numbers: an

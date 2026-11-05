@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using CMS;
 using CMS.Difficulty;
@@ -12,6 +13,8 @@ using Il2CppSystem.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Safety;
+using Object = UnityEngine.Object;
 
 namespace CMS21Together.ClientSide.Data;
 
@@ -143,27 +146,28 @@ public static class GameLoadHook
 		texturePackManager.Load();
 		DLCErrorWindow dlcErrorWindow = WindowManager.Instance.GetWindowByID<DLCErrorWindow>(WindowID.DLCError);
 		dlcErrorWindow.Clear();
-		int carLoaderCount = __instance.carLoader.Count;
+		var carLoaderCount = __instance.carLoader.Count;
 		GameSettings.DoNotClearPartsIDCache = true;
 		GameSettings.DoNotUnloadAssets = true;
-		int num;
-		for (int i = 0; i < carLoaderCount; i = num + 1)
+		for (var i = 0; i < carLoaderCount; i++)
 		{
-			CarLoader car = __instance.carLoader[i];
-			car.DeleteCar();
-			car.LoadCarFromFile();
+			var car = __instance.carLoader[i];
+			if (car == null) continue;
+
+			// One car that cannot be read from its file used to abort the whole loop: the exception killed this
+			// coroutine and left every loader after it emptied by DeleteCar. Fail that car only, name it, carry on.
+			if (!TryStartCarLoad(car, i)) continue;
+
 			while (!car.IsLoadedFromFile())
 			{
 				yield return YieldInstructions.WaitForEndOfFrame;
 			}
 			if (car.GetSaveName() == GlobalData.SelectedCarLoader && GlobalData.NewMileage != 0)
 			{
-				CarLoader carLoader = car;
+				var carLoader = car;
 				carLoader.CarInfoData = carLoader.CarInfoData with { Mileage = carLoader.CarInfoData.Mileage + GlobalData.NewMileage };
 				GlobalData.NewMileage = 0;
-				car = null;
 			}
-			num = i;
 		}
 		GameSettings.DoNotUnloadAssets = false;
 		GameSettings.DoNotClearPartsIDCache = false;
@@ -219,9 +223,37 @@ public static class GameLoadHook
 					carLifterData = null;
 				}
 				IL_06AE:
-				num = i;
-				i = num + 1;
+				i++;
 			}
+		}
+	}
+
+	/// <summary>
+	/// Starts one car's file load. A failure (the game has thrown "routine is null" here) costs that car, not the whole
+	/// garage: the caller skips the wait loop and loads the rest.
+	/// </summary>
+	private static bool TryStartCarLoad(CarLoader car, int index)
+	{
+		var started = false;
+		Guard.Run($"load the car on loader {index} ({CarName(car)}) from its file", () =>
+		{
+			car.DeleteCar();
+			car.LoadCarFromFile();
+			started = true;
+		});
+
+		return started;
+	}
+
+	private static string CarName(CarLoader car)
+	{
+		try
+		{
+			return string.IsNullOrEmpty(car.carToLoad) ? "no car" : car.carToLoad;
+		}
+		catch (Exception)
+		{
+			return "unreadable";
 		}
 	}
 

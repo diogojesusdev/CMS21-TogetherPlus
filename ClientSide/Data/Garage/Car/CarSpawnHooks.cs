@@ -33,19 +33,23 @@ public static class CarSpawnHooks
 			listenToLoad = true;
 			return true; // let the game do the one load (single-player, or applying the host's own load)
 		}
-		
+
+		// Observe the load, never replace it. The game's own enumerator is the load, and the caller starts the one
+		// this method returns: CarLoader.LoadCarFromFile() is StartCoroutine(LoadCarFromFile(name)). Skipping the
+		// original (returning false) handed StartCoroutine a null enumerator, Unity threw
+		// "NullReferenceException: routine is null", and that ended the garage car loop after its first loader -
+		// which had already deleted its car - so the save's cars never came back.
 		int indexFromCarLoaderName = Helper.GetIndexFromCarLoaderName(file);
 		NewCarData newCarData = Singleton<GameManager>.Instance.GameDataManager.LoadCar(indexFromCarLoaderName, false);
-		// This prefix *is* the load: starting it and then letting the original run too loaded every car twice.
-		MainMod.StartCoroutine(__instance.LoadCarFromFile(newCarData));
-		MelonCoroutines.Start(LoadCarFromFile(newCarData, __instance));
-		return false;
+		MelonCoroutines.Start(SyncLoadedCar(newCarData, __instance));
+		return true;
 	}
 
-	private static IEnumerator LoadCarFromFile(NewCarData carDataCheck, CarLoader __instance)
+	private static IEnumerator SyncLoadedCar(NewCarData carDataCheck, CarLoader __instance)
 	{
 		yield return new WaitForEndOfFrame();
-		if (string.IsNullOrEmpty(__instance.carToLoad)) yield break;
+		// The car name comes from the data read above: the loader's own field is filled by the load we only observe.
+		if (string.IsNullOrEmpty(carDataCheck.carToLoad)) yield break;
 		if (QolParking.IsExtraPlace(__instance.placeNo)) yield break;
 		// Phase 6b (SceneReturnSync): a car from this player's own stale save is never sent to the host.
 		if (Features.Garage.SceneReturnFeature.HoldEcho(__instance)) yield break;
