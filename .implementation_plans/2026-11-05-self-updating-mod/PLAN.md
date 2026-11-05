@@ -1,6 +1,6 @@
 # Self-updating mod
 
-**Status:** done in 0.5.0-rc13. End-to-end tested against a real release (see Testing).
+**Status:** done in 0.5.0-rc14. End-to-end tested against real releases (see Testing).
 
 ## Goal
 
@@ -87,3 +87,19 @@ That test found two real bugs, fixed in rc13:
    again. Now a version is only blamed when another version had already started on this machine (a started marker
    exists and differs); otherwise the update is kept until a start succeeds. A successful start also clears its own
    failed entry (`UpdateFiles.ClearFailed`).
+
+## Recovery behaviours verified (rc14, on this machine)
+
+State was prepared by hand so each path could be run without waiting for a broken release:
+
+- pending version, no version ever started here -> `has not started yet; keeping it until it does.`, the update is
+  kept, and the same launch's mod start records the version.
+- pending version, a started marker for another version -> restored the previous DLL, wrote the installed version
+  back, `did not start; rolled back to 0.5.0-rc12 (1 file(s)). The installer can retry that version.` and
+  `failed.txt` got the version.
+- pending version, started marker for that version -> `started successfully.` and the pending marker was cleared.
+- after a rollback, the failed version was not offered again (`failed to start before, so it is not installed
+  automatically`).
+- installing that version with the installer and starting it cleared its `failed.txt` entry.
+
+Rollback no longer tries to copy `Plugins\*.dll` (they are loaded and locked; the installer handles them).

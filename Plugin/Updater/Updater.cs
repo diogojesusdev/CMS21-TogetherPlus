@@ -168,7 +168,7 @@ public class UpdaterPlugin : MelonPlugin
 		}
 
 		var restored = 0;
-		foreach (var relative in BackedUpFiles())
+		foreach (var relative in BackedUpFiles(includePlugins: false))
 		{
 			var source = Path.Combine(backup, relative);
 			if (!File.Exists(source)) continue;
@@ -188,7 +188,8 @@ public class UpdaterPlugin : MelonPlugin
 		UpdateFiles.WriteInstalledVersion(gameDirectory, previous);
 		UpdateFiles.MarkFailed(plusRoot, pending);
 		UpdateFiles.ClearPending(plusRoot);
-		LoggerInstance.Msg($"[Update] Together+ {pending} did not start; rolled back to {previous} ({restored} file(s)).");
+		LoggerInstance.Msg($"[Update] Together+ {pending} did not start; rolled back to {previous} ({restored} file(s)). " +
+		                   "The installer can retry that version.");
 	}
 
 	private void Install(ReleaseJson release, string version, string installed, bool forced, string gameDirectory, string plusRoot)
@@ -267,7 +268,7 @@ public class UpdaterPlugin : MelonPlugin
 		var backup = Path.Combine(UpdateFiles.StateDirectory(plusRoot), "backup");
 		if (Directory.Exists(backup)) Directory.Delete(backup, true);
 
-		foreach (var relative in BackedUpFiles())
+		foreach (var relative in BackedUpFiles(includePlugins: true))
 		{
 			var source = Path.Combine(gameDirectory, relative);
 			if (!File.Exists(source)) continue;
@@ -279,12 +280,13 @@ public class UpdaterPlugin : MelonPlugin
 		UpdateFiles.WriteVersion(Path.Combine(backup, "version.txt"), installed);
 	}
 
-	private static IEnumerable<string> BackedUpFiles()
+	private static IEnumerable<string> BackedUpFiles(bool includePlugins)
 	{
 		yield return Path.Combine("Mods", UpdateFiles.ModFileName);
 		yield return Path.Combine("Mods", "TogetherPlus-README.md");
 		yield return Path.Combine("Mods", "TogetherPlus-NOTICE.md");
-		yield return Path.Combine("Plugins", GcFixFileName);
+		// Plugins are loaded before this runs, so they cannot be copied back while the game runs.
+		if (includePlugins) yield return Path.Combine("Plugins", GcFixFileName);
 		yield return Path.Combine("UserLibs", "Facepunch.Steamworks.Win64.dll");
 		yield return Path.Combine("UserLibs", "steam_api64.dll");
 	}
