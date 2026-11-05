@@ -33,6 +33,27 @@ public class GameData
 	public WelderLogic welderLogic;
 	public PaintshopManager paintshopManager;
 
+	/// <summary>
+	/// Lets go of every garage object this cached. They are all destroyed with the scene, and keeping the IL2CPP
+	/// wrappers alive while Unity unloads it is a use-after-free in the unload's reference walk (see Shutdown).
+	/// </summary>
+	public void ReleaseReferences()
+	{
+		carLoaders = null;
+		localInventory = null;
+		localPlayer = null;
+		orderGenerator = null;
+		springClampLogic = null;
+		engineStandLogic = null;
+		engineStandLogic2 = null;
+		tireChanger = null;
+		garageTools = null;
+		toolsMoveManager = null;
+		wheelBalancer = null;
+		welderLogic = null;
+		paintshopManager = null;
+	}
+
 	public GameData()
 	{
 		localPlayer = Object.FindObjectOfType<FPSInputController>().gameObject;

@@ -803,6 +803,7 @@ public static class SavesManager
 	[HarmonyPrefix]
 	public static void SavePatch(ProfileManager __instance)
 	{
+		if (Shutdown.Leaving) return;
 		if (!Client.Instance.isConnected || !Client.Instance.IsHost) return;
 		BeginSave(__instance.selectedProfile);
 	}
@@ -811,6 +812,7 @@ public static class SavesManager
 	[HarmonyPrefix]
 	public static bool SaveHook(bool showInfoIfSaveInProgress = false)
 	{
+		if (Shutdown.Leaving) return true; // the garage is going away: the game saves, the mod stands back
 		if (!Client.Instance.isConnected) return true;
 
 		GameData.Instance?.orderGenerator?.Save();

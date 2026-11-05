@@ -25,7 +25,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0-rc30";
+		public const string PLUS_VERSION = "0.5.0-rc31";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;
@@ -137,6 +137,7 @@ namespace CMS21Together
 		{
 			if (!isModInitialized) return;
 			SceneManager.IsLoading = false;
+			Shutdown.Clear();
 			Log.Info($"[Scene] Loaded {sceneName} (connected={Client.Instance?.isConnected == true}).");
 			
 			if (sceneName == "Menu")
@@ -181,6 +182,10 @@ namespace CMS21Together
 			Client.Instance.Tick();
 			PlusSaves.Pump();
 			Recovery.Pump();
+
+			// While the garage is being torn down the mod touches nothing that belongs to the game.
+			if (Shutdown.Leaving) return;
+
 			ClientSide.Features.Features.Pump();
 
 			if (Client.Instance.isConnected && ClientData.Instance != null && SceneManager.CurrentScene() == GameScene.garage)

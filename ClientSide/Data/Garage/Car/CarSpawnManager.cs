@@ -29,6 +29,7 @@ public static class CarSpawnManager
 	/// </summary>
 	private static bool StillInThisGarage(CarLoader carLoader, int carLoaderID)
 	{
+		if (Shutdown.Leaving) return false;
 		if (!Client.Instance.isConnected) return false;
 		if (SceneManager.IsLoading || !SceneManager.IsInGarage()) return false;
 		if (!GameLoadHook.IsGameReady()) return false;

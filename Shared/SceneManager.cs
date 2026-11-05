@@ -36,12 +36,6 @@ public static class SceneManager
 		// Any scene change ends garage readiness, also after a disconnect (the menu load runs unconnected).
 		GameLoadHook.Reset();
 
-		// The menu reloads the game's own profile array, which only has the four vanilla slots, and then reads
-		// ProfileData[ProfileManager.selectedProfile] straight away. A mod save leaves that index at 4 or higher, so
-		// the game throws IndexOutOfRangeException inside its own scene-load coroutine and the process dies. This
-		// runs before the connected check on purpose: a single-player mod save returns to the menu the same way.
-		if (newSceneName == "Menu") ResetProfileSelection();
-
 		// Business Rule: Only process scene changes if client is connected
 		if (!Client.Instance.isConnected) return;
 
@@ -57,10 +51,12 @@ public static class SceneManager
 		{
 			// Business Rule: Disconnect and cleanup when returning to menu
 			Log.Info("[SceneManager->SelectSceneToLoadHook] Going to menu! Disconnecting...");
-			
+
+			// No mod work may touch the game from here on: the garage is about to be destroyed.
+			Shutdown.Begin("the player went back to the menu");
+
 			// Security Rule: Stop outdoor operations before disconnecting
 			StopOutdoorOperations();
-			CMS21Together.ClientSide.Data.Garage.Car.CarSaveHooks.Reset();
 			
 			// The menu is already loading: stop synchronously (the session save happens here) and don't load it again.
 			if (Server.Instance != null && Server.Instance.isRunning)
@@ -68,6 +64,10 @@ public static class SceneManager
 
 			if (Client.Instance.isConnected)
 				Client.Instance.Disconnect("Returned to the menu.", false);
+
+			// Last, once the session is saved and closed: let go of every game object the mod still points at, so
+			// Unity's scene unload cannot walk into a wrapper of ours that now refers to freed memory.
+			Shutdown.ReleaseGameReferences();
 		}
 		else if (newSceneName == "garage" || newSceneName == "Christmas" || newSceneName == "Easter" || newSceneName == "Halloween")
 		{
@@ -105,8 +105,13 @@ public static class SceneManager
 	/// <summary>
 	/// Sends the game back to a vanilla profile slot before the menu loads. Together+ saves live at index 4 and up in
 	/// an array the mod installs; the menu rebuilds that array with the game's four slots and then reads
-	/// <c>ProfileData[selectedProfile]</c>, which throws (and kills the process) while the index still points at a
-	/// mod save. SavesManager.Initialize reinstalls the bigger array once the menu scene is up.
+	/// <c>ProfileData[selectedProfile]</c>, which logs an IndexOutOfRangeException while the index still points at a
+	/// mod save.
+	/// <para>
+	/// Not called any more. The exception is real but harmless (the game logs it during its own startup menu and
+	/// carries on), while resetting the index here changed the slot <c>SavesManager.SaveHook</c> saves into, because
+	/// the game's <c>GarageLoader.Save</c> runs after this hook. Kept for the record.
+	/// </para>
 	/// </summary>
 	private static void ResetProfileSelection()
 	{
