@@ -23,17 +23,45 @@ public static class Il2CppArrays
 			return;
 		}
 
-		// Game structs (NewCarData, CustomColor, SaveData) sit inline in the array: Unhollower copies the value in,
-		// then every pointer-sized word of the element goes through the barrier so the references inside are seen.
+		// Game structs (NewCarData, CustomColor, SaveData) sit inline in the array. Unhollower's indexer is not used
+		// for them: it copies with a stride cached in its own static constructor, which stays at IntPtr.Size when the
+		// array type is touched before the element class is registered. The store and the write barrier below would
+		// then disagree and scatter the element.
 		if (value == null) return;
-		array[index] = value;
-		var start = array.Pointer + ElementsOffset + index * Element<T>.Size;
-		for (var offset = 0; offset + IntPtr.Size <= Element<T>.Size; offset += IntPtr.Size)
-		{
-			var slot = start + offset;
-			IL2CPP.il2cpp_gc_wbarrier_set_field(array.Pointer, slot, Marshal.ReadIntPtr(slot));
-		}
+		CopyInline(array, index, IL2CPP.il2cpp_object_unbox(value.Pointer), Element<T>.Size);
 		GC.KeepAlive(value);
+	}
+
+	/// <summary>
+	/// Writes <paramref name="size"/> bytes of an inline value type into element <paramref name="index"/>, then puts
+	/// every pointer-sized word of it through the GC write barrier so the references inside are seen.
+	/// </summary>
+	public static void CopyInline<T>(Il2CppReferenceArray<T> array, int index, IntPtr source, int size) where T : Il2CppObjectBase
+	{
+		if (array == null) throw new ArgumentNullException(nameof(array));
+		if ((uint)index >= (uint)array.Length) throw new ArgumentOutOfRangeException(nameof(index));
+		if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+		CopyInline(array, array.Pointer + ElementsOffset + index * size, source, size);
+	}
+
+	/// <summary>The same copy, for a caller that has already worked out (and checked) the element's address.</summary>
+	public static void CopyInline<T>(Il2CppReferenceArray<T> array, IntPtr target, IntPtr source, int size) where T : Il2CppObjectBase
+	{
+		if (array == null) throw new ArgumentNullException(nameof(array));
+		if (target == IntPtr.Zero) throw new ArgumentNullException(nameof(target));
+		if (source == IntPtr.Zero) throw new ArgumentNullException(nameof(source));
+		if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+
+		var words = size / IntPtr.Size;
+
+		for (var word = 0; word < words; word++)
+		{
+			var offset = word * IntPtr.Size;
+			IL2CPP.il2cpp_gc_wbarrier_set_field(array.Pointer, target + offset, Marshal.ReadIntPtr(source, offset));
+		}
+
+		for (var rest = words * IntPtr.Size; rest < size; rest++)
+			Marshal.WriteByte(target, rest, Marshal.ReadByte(source, rest));
 	}
 
 	private static class Element<T>

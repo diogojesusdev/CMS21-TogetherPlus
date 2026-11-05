@@ -77,9 +77,9 @@ public class DataHelper // TODO: Finish This!
 		copy.carLiftersData = data.carLiftersData; //  TODO: check this
 		copy.carLoaderData = data.carLoaderData; //  TODO: check this
 		copy.carsInGarage = new Il2CppReferenceArray<NewCarData>(data.carsInGarage.Length);
-		for (var i = 0; i < data.carsInGarage.Length; i++) Il2CppArrays.Set(copy.carsInGarage, i, Copy(CarDataReader.At(data.carsInGarage, i)));
+		CopyCars(data.carsInGarage, copy.carsInGarage, "carsInGarage");
 		copy.carsOnParking = new Il2CppReferenceArray<NewCarData>(data.carsOnParking.Length);
-		for (var i = 0; i < data.carsOnParking.Length; i++) Il2CppArrays.Set(copy.carsOnParking, i, Copy(CarDataReader.At(data.carsOnParking, i)));
+		CopyCars(data.carsOnParking, copy.carsOnParking, "carsOnParking");
 		copy.FinishedTutorial = data.FinishedTutorial;
 		copy.garageCustomizationData = data.garageCustomizationData; //  TODO: check this
 		copy.globalDataWrapper = data.globalDataWrapper; //  TODO: check this
@@ -96,6 +96,27 @@ public class DataHelper // TODO: Finish This!
 		copy.ShopListItemsData = data.ShopListItemsData; //  TODO: check this
 
 		return copy;
+	}
+
+	/// <summary>
+	/// Copies the cars across byte for byte. A car is never rebuilt field by field here: a slot the validated read
+	/// cannot make sense of used to become a default NewCarData with null strings, arrays and lists, and handing
+	/// such a profile back to the game is what crashed it on the way to the menu.
+	/// </summary>
+	private static void CopyCars(Il2CppReferenceArray<NewCarData> source, Il2CppReferenceArray<NewCarData> target, string name)
+	{
+		var failed = 0;
+		string lastProblem = null;
+
+		for (var i = 0; i < source.Length; i++)
+		{
+			if (CarDataReader.CopySlot(source, target, i, out var problem)) continue;
+			failed++;
+			lastProblem = problem;
+		}
+
+		if (failed > 0)
+			Log.Warn($"[DataHelper] {failed} of {source.Length} {name} entries could not be copied: {lastProblem}");
 	}
 
 	public static NewCarData Copy(NewCarData data)

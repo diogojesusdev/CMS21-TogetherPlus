@@ -119,6 +119,8 @@ public static class SavesManager
 				ModSaves[index] = modSave;
 				if (modSave.alreadyLoaded)
 				{
+					// Native calls: the last line before a crash names the slot being rebuilt.
+					Log.Info($"[Saves] Rebuilding the profile of save slot {modSave.saveIndex} for the menu.");
 					var tempSaveArray = new Il2CppReferenceArray<SaveData>(4);
 					Il2CppArrays.Set(tempSaveArray, 3, GetSave(modSave.saveIndex));
 
@@ -126,6 +128,7 @@ public static class SavesManager
 					var copiedData = DataHelper.Copy(Singleton<GameManager>.Instance.GameDataManager.ProfileData[3]);
 
 					Il2CppArrays.Set(profileData, modSave.saveIndex, copiedData);
+					Log.Info($"[Saves] Save slot {modSave.saveIndex} is ready for the menu.");
 				}
 			}
 

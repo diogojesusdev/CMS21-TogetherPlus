@@ -63,12 +63,34 @@ public static class CarDataReader
 	/// <summary>
 	/// The car on <paramref name="index"/>. An empty or unreadable slot gives a default car (a warning only when the
 	/// slot held something unreadable), so callers that poke a single field keep working.
+	/// <para>
+	/// Never use this to copy a car: the default it falls back to has null strings, arrays and lists, and handing
+	/// such a car back to the game crashes it in native code (see the menu-return crash). Use
+	/// <see cref="CopySlot"/>, which reproduces the slot byte for byte.
+	/// </para>
 	/// </summary>
 	public static NewCarData At(Il2CppReferenceArray<NewCarData> cars, int index)
 	{
 		if (TryRead(cars, index, out var data, out var problem)) return data;
 		if (problem != null) Log.Warn($"[CarDataReader] Garage slot {index} could not be read: {problem}");
 		return new NewCarData();
+	}
+
+	/// <summary>
+	/// Copies one car from <paramref name="source"/> into <paramref name="target"/> exactly as the game stores it,
+	/// through the GC write barrier. Nothing is interpreted, so a car the validated read cannot make sense of still
+	/// survives a copy unchanged instead of being replaced by a blank one.
+	/// </summary>
+	public static bool CopySlot(Il2CppReferenceArray<NewCarData> source, Il2CppReferenceArray<NewCarData> target, int index, out string problem)
+	{
+		if (!Prepare(out problem)) return false;
+		if (!TrySlot(source, index, out var from, out problem)) return false;
+		if (!TrySlot(target, index, out var to, out problem)) return false;
+
+		Il2CppArrays.CopyInline(target, to, from, elementSize);
+		GC.KeepAlive(source);
+		GC.KeepAlive(target);
+		return true;
 	}
 
 	/// <summary>
