@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CMS21Together.ClientSide.Data.Garage.Car;
@@ -57,6 +57,7 @@ public static class GarageResync
 			yield return new WaitForEndOfFrame();
 		}
 		ClientSend.ResyncTools();
+		ClientSend.ResyncStations();
 		/*yield return new WaitForEndOfFrame();
 		ClientSend.ResyncPark();*/
 		yield return new WaitForEndOfFrame();

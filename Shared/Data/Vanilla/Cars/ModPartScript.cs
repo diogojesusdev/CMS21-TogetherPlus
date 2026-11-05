@@ -45,16 +45,19 @@ public class ModPartScript
 		if (_type != ModPartType.engineStand)
 		{
 			var carLoaderID = CarLoaderRegistry.IdOf(data.gameObject.GetComponentsInParent<CarLoaderOnCar>(true)[0].CarLoader);
-			var car = ClientData.Instance.loadedCars[carLoaderID];
-			unmountWith = new List<ModPartScript>();
-			foreach (var part in data.unmountWith)
+			if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) && car?.CarPartInfo != null)
 			{
-				PartUpdateHooks.FindPartInDictionaries(car, part, out var partType, out var key, out var index);
+				unmountWith = new List<ModPartScript>();
+				foreach (var part in data.unmountWith)
+				{
+					if (part == null) continue;
+					if (!PartUpdateHooks.FindPartInDictionaries(car, part, out var partType, out var key, out var index, false)) continue;
 
-				if (index == null)
-					unmountWith.Add(new ModPartScript(part, key, -1, partType));
-				else
-					unmountWith.Add(new ModPartScript(part, key, index.Value, partType));
+					if (index == null)
+						unmountWith.Add(new ModPartScript(part, key, -1, partType));
+					else
+						unmountWith.Add(new ModPartScript(part, key, index.Value, partType));
+				}
 			}
 		}
 

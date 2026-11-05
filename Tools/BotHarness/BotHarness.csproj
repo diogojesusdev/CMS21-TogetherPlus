@@ -21,6 +21,9 @@
     <Compile Include="..\..\Shared\PacketTypes.cs" Link="Linked\PacketTypes.cs" />
     <Compile Include="..\..\Shared\Identity.cs" Link="Linked\Identity.cs" />
     <Compile Include="..\..\Shared\Net\**\*.cs" LinkBase="Linked\Net" />
+    <Compile Include="..\..\Shared\PlusPaths.cs" Link="Linked\PlusPaths.cs" />
+    <Compile Include="..\..\Shared\Safety\CrashReport.cs" Link="Linked\CrashReport.cs" />
+    <Compile Include="..\..\Shared\Safety\Guard.cs" Link="Linked\Guard.cs" />
     <Compile Include="..\..\Shared\Locks\**\*.cs" LinkBase="Linked\Locks" />
     <Compile Include="..\..\Shared\Economy\**\*.cs" LinkBase="Linked\Economy" />
     <Compile Include="..\..\Shared\Persistence\**\*.cs" LinkBase="Linked\Persistence" />

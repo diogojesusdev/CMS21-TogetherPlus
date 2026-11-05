@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using CMS21Together.ClientSide.Data.Garage;
 using CMS21Together.ClientSide.Data.Garage.Campaign;
@@ -43,6 +43,7 @@ public class ClientData
 		GameData.Instance = null;
 		
 		Player.Inventory.Reset();
+		CarEnterExit.Reset();
 		CarSpawnHooks.Reset();
 		JobManager.Reset();
 		Wallet.Reset();

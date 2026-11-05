@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.Shared.Data;
@@ -26,17 +26,20 @@ public static class CarSpawnHooks
 
 	[HarmonyPatch(typeof(CarLoader), nameof(CarLoader.LoadCarFromFile), typeof(string))]
 	[HarmonyPrefix]
-	public static void LoadCarFromFileHook(string file, CarLoader __instance)
+	public static bool LoadCarFromFileHook(string file, CarLoader __instance)
 	{
 		if (!Client.Instance.isConnected || !listenToLoad)
 		{
 			listenToLoad = true;
+			return true; // let the game do the one load (single-player, or applying the host's own load)
 		}
 		
 		int indexFromCarLoaderName = Helper.GetIndexFromCarLoaderName(file);
 		NewCarData newCarData = Singleton<GameManager>.Instance.GameDataManager.LoadCar(indexFromCarLoaderName, false);
+		// This prefix *is* the load: starting it and then letting the original run too loaded every car twice.
 		MainMod.StartCoroutine(__instance.LoadCarFromFile(newCarData));
 		MelonCoroutines.Start(LoadCarFromFile(newCarData, __instance));
+		return false;
 	}
 
 	private static IEnumerator LoadCarFromFile(NewCarData carDataCheck, CarLoader __instance)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +35,6 @@ public static class UICore
 	public static GameObject TMP_Window;
 	public static GameObject TMP_Info_Window;
 
-	private static bool update_notice = false;
 	public static int last_index_pressed;
 
 	public static void InitializeUI(string sceneName)
@@ -81,18 +80,35 @@ public static class UICore
 		rect.anchoredPosition = new Vector2(-15, 10);
 	}
 
+	private static bool versionCheckStarted;
+
 	private static IEnumerator CheckModVersion()
 	{
-		if (update_notice)
-			yield break;
+		if (versionCheckStarted) yield break;
+		versionCheckStarted = true;
 		yield return new WaitForEndOfFrame();
 		yield return new WaitForSeconds(1);
 
-		switch (ContentManager.Instance.IsNewVersionAvailable(MainMod.ASSEMBLY_MOD_VERSION))
+		var task = ContentManager.Instance.IsNewVersionAvailableAsync(MainMod.ASSEMBLY_MOD_VERSION);
+		for (var waited = 0f; !task.IsCompleted && waited < 8f; waited += 0.25f)
+			yield return new WaitForSeconds(0.25f);
+		if (!task.IsCompleted) yield break;
+
+		VersionStatus status;
+		try
+		{
+			status = task.Result;
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[UI] The version check failed: {ex.Message}");
+			yield break;
+		}
+
+		switch (status)
 		{
 			case VersionStatus.Outdated:
 				UICustomPanel.CreateInfoPanel("A new version of the mod is available !");
-				update_notice = true;
 				break;
 			case VersionStatus.Latest:
 				Log.Info("Mod is up-to-date !");

@@ -1,7 +1,9 @@
-﻿using CMS21Together.ClientSide.Data.Garage.Car;
+using CMS21Together.ClientSide.Data.Garage.Car;
 using System.Collections;
 using CMS;
+using CMS21Together.ClientSide.Data.Garage;
 using CMS21Together.ClientSide.Data.Handle;
+using CMS21Together.Shared;
 using HarmonyLib;
 using MelonLoader;
 using UnityEngine;
@@ -33,16 +35,37 @@ public static class WelderLogic
 			yield return new WaitForSeconds(0.25f);
 		yield return new WaitForEndOfFrame();
 
-		listen = false;
+		if (GameData.Instance == null || GameData.Instance.carLoaders == null ||
+		    carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length ||
+		    GameData.Instance.carLoaders[carLoaderID] == null || GameData.Instance.welderLogic == null)
+		{
+			Log.Warn($"[Welder] Car {carLoaderID} is not loaded here; the weld was skipped.");
+			yield break;
+		}
+
 		WelderL l = GameData.Instance.welderLogic;
 		CarLoader carLoader = GameData.Instance.carLoaders[carLoaderID];
-
-		StartAnimFix(carLoader, l);
-		carLoader.TweenCondition("body", 1f, l.effectTime);
-		carLoader.SetDent(carLoader.GetCarPart("body"), 1f);
-		carLoader.SetDent(carLoader.GetCarPart("details"), 1f);
-		yield return FinishAnimFix(carLoader, l);
-		l.EnableInteractiveObjects(true);
+		listen = false;
+		try
+		{
+			using (ActionGate.Apply())
+			{
+				StartAnimFix(carLoader, l);
+				carLoader.TweenCondition("body", 1f, l.effectTime);
+				var body = carLoader.GetCarPart("body");
+				if (body != null) carLoader.SetDent(body, 1f);
+				var details = carLoader.GetCarPart("details");
+				if (details != null) carLoader.SetDent(details, 1f);
+			}
+			yield return FinishAnimFix(carLoader, l);
+			l.EnableInteractiveObjects(true);
+		}
+		finally
+		{
+			// The apply path never re-enters the send hook, so the one-shot flag must always be restored here; a
+			// stuck `false` swallowed this player's next real weld.
+			listen = true;
+		}
 	}
 
 	private static void StartAnimFix(CarLoader carLoader, WelderL l)

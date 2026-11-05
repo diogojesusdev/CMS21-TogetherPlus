@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CMS21Together.Shared.Economy;
@@ -43,13 +43,14 @@ public enum AwayCarOutcome
 /// <summary>A car bought away, waiting on the host.</summary>
 public sealed class AwayCar<T>
 {
-	internal AwayCar(int from, int txn, string uid, T car, double since)
+	internal AwayCar(int from, int txn, string uid, T car, double since, bool requiresDebit)
 	{
 		From = from;
 		Txn = txn;
 		Uid = uid;
 		Car = car;
 		Since = since;
+		RequiresDebit = requiresDebit;
 	}
 
 	public int From { get; }
@@ -57,6 +58,9 @@ public sealed class AwayCar<T>
 	public string Uid { get; }
 	public T Car { get; }
 	public double Since { get; }
+
+	/// <summary>A campaign purchase must find its debit; sandbox cars are free and need none.</summary>
+	public bool RequiresDebit { get; }
 
 	/// <summary>
 	/// What the debit charged, taken when it was applied (Phase 8 assessment: refunding by transaction number could hit
@@ -74,16 +78,19 @@ public sealed class AwayCarQueue<T>
 	/// <summary>A debit still undecided after this long is not trusted (the buyer left, or the debit was lost).</summary>
 	public const double GiveUpSeconds = 60;
 
+	/// <summary>A campaign purchase with no linked debit at all is refused after this short grace.</summary>
+	public const double NoDebitSeconds = 5;
+
 	private readonly List<AwayCar<T>> pending = new();
 	private readonly HashSet<string> seen = new();
 
 	public int Count => pending.Count;
 
 	/// <summary>Queues a car; false when the same car (by its UId) was already queued or placed.</summary>
-	public bool Add(int from, int txn, string uid, T car, double now)
+	public bool Add(int from, int txn, string uid, T car, double now, bool requiresDebit = true)
 	{
 		if (!string.IsNullOrEmpty(uid) && !seen.Add(uid)) return false;
-		pending.Add(new AwayCar<T>(from, txn, uid, car, now) { Charged = txn <= 0 });
+		pending.Add(new AwayCar<T>(from, txn, uid, car, now, requiresDebit) { Charged = !requiresDebit });
 		return true;
 	}
 
@@ -106,6 +113,8 @@ public sealed class AwayCarQueue<T>
 			AwayCarOutcome? outcome = decided switch
 			{
 				TxnStatus.Insufficient or TxnStatus.Invalid => AwayCarOutcome.Refused,
+				// No debit was ever linked: a campaign purchase cannot be trusted (it used to be treated as paid).
+				_ when car.RequiresDebit && car.Txn <= 0 && now - car.Since >= NoDebitSeconds => AwayCarOutcome.Refused,
 				_ when now - car.Since >= GiveUpSeconds => AwayCarOutcome.TimedOut,
 				_ => null
 			};

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using CMS21Together.ClientSide.Data.Handle;
 using HarmonyLib;
@@ -18,6 +18,9 @@ public static class SkillUpgradeHook
 	public static void UnlockUpgradeHook( string id, int lvl, UpgradeType upgradeType, UpgradeSystem __instance)
 	{
 		if (!Client.Instance.isConnected || !listen) { listen = true; return; }
+		// Garage upgrades are shared state applied inside ActionGate.Apply(): they are not this player's skills, and
+		// writing them into the personal profile replayed them as skill unlocks on the next join.
+		if (upgradeType == UpgradeType.Money || ActionGate.ApplyingServerState) return;
 		
 		
 		if (__instance == null) return;

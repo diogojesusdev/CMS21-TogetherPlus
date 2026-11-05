@@ -1,4 +1,5 @@
-﻿using CMS21Together.ClientSide.Data.Garage.Car;
+using System;
+using CMS21Together.ClientSide.Data.Garage.Car;
 using System.Collections;
 using System.Linq;
 using CMS;
@@ -26,7 +27,19 @@ public static class EngineCrane
 		if(!Client.Instance.isConnected || !listen) { listen = true; return;}
 		
 		Log.Debug("[EngineCrane->InsertEngineIntoCarHook] Hook!");
-		ClientSend.EngineCraneHandlePacket(1,-1,new ModGroupItem(engine));
+		// The receiver must insert into the car the crane is over *here*, not into its own crane's car; the packet
+		// already carries a car id, so send the right one.
+		var carLoaderID = -1;
+		try
+		{
+			var loader = global::ToolsMoveManager.Get()?.GetConnectedCarLoader(IOSpecialType.EngineCrane);
+			if (loader != null) carLoaderID = CarLoaderRegistry.IdOf(loader);
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[EngineCrane] Could not read the connected car: {ex.Message}");
+		}
+		ClientSend.EngineCraneHandlePacket(1, carLoaderID, new ModGroupItem(engine));
 	}
         
 	[HarmonyPatch(typeof(CarLoader), nameof(CarLoader.UseEngineCrane))]
@@ -47,12 +60,23 @@ public static class EngineCrane
 		while (!GameLoadHook.IsGameReady())
 			yield return new WaitForSeconds(0.25f);
 		yield return new WaitForEndOfFrame();
-		
+
+		if (GameData.Instance?.carLoaders == null || carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length ||
+		    GameData.Instance.carLoaders[carLoaderID] == null)
+		{
+			Log.Warn($"[Apply] Engine crane: car {carLoaderID} is not loaded here; the pull was skipped.");
+			yield break;
+		}
 		//GameData.Instance.carLoaders[carLoaderID].UseEngineCrane();
 		CarLoader carLoader = GameData.Instance.carLoaders[carLoaderID];
+		GameObject engine = carLoader.GetEngine();
+		if (engine == null)
+		{
+			Log.Warn($"[Apply] Engine crane: car {carLoaderID} has no engine to pull.");
+			yield break;
+		}
 		Log.Info($"[Apply] Engine crane: taking the engine out of {carLoader.carToLoad} (loader {carLoaderID}).");
 		
-		GameObject engine = carLoader.GetEngine();
 		InteractiveObject iO = engine.GetComponent<InteractiveObject>();
 		if (iO == null)
 		{
@@ -107,18 +131,25 @@ public static class EngineCrane
 		NotificationCenter.Get().ActionUnMountGroup(iO);
 	}
 	
-	public static IEnumerator InsertEngineIntoCar(ModGroupItem engine)
+	public static IEnumerator InsertEngineIntoCar(ModGroupItem engine, int carLoaderID = -1)
 	{
 		while (!GameLoadHook.IsGameReady())
 			yield return new WaitForSeconds(0.25f);
 		yield return new WaitForEndOfFrame();
 
+		if (engine == null) yield break;
 		GroupItem group = engine.ToGame();
+		if (group == null) yield break;
 		Log.Info($"[Apply] Engine crane: inserting engine {group.ID}.");
 		
-		CarLoader selectedCarLoader = global::ToolsMoveManager.Get().GetConnectedCarLoader(IOSpecialType.EngineCrane);
+		CarLoader selectedCarLoader = null;
+		if (carLoaderID >= 0 && GameData.Instance?.carLoaders != null && carLoaderID < GameData.Instance.carLoaders.Length)
+			selectedCarLoader = GameData.Instance.carLoaders[carLoaderID];
+		if (selectedCarLoader == null)
+			selectedCarLoader = global::ToolsMoveManager.Get()?.GetConnectedCarLoader(IOSpecialType.EngineCrane);
 		if (selectedCarLoader == null)
 		{
+			Log.Warn($"[Apply] Engine crane: no car to insert {group.ID} into here; the insert was skipped.");
 			yield break;
 		}
 		GameObject currentEngine = selectedCarLoader.GetEngine();

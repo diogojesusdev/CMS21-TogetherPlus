@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using CMS21Together.ClientSide.Data.Garage.Tools;
 using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.Shared.Data;
@@ -91,7 +91,7 @@ public static class PartUpdateHooks
 		if (partScript.GetComponentInParent<CarLoaderOnCar>())
 		{
 			var carLoaderID = CarLoaderRegistry.IdOfParent(partScript);
-			var car = ClientData.Instance.loadedCars[carLoaderID];
+			if (!ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) || car?.CarPartInfo == null) yield break;
 
 			if (FindPartInDictionaries(car, partScript, out var partType, out var key, out var index))
 				MelonCoroutines.Start(SendPartUpdate(car, carLoaderID, key, index, partType));
@@ -123,11 +123,13 @@ public static class PartUpdateHooks
 	public static void HideHook(PartScript __instance) // best way i've found to detect when a partScript is unmounted
 	{
 		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+		// Junkyard / salon / barn cars are not garage cars: their loader ids collide with the tracked ones.
+		if (SceneManager.CurrentScene() != GameScene.garage) return;
 		
 		if (__instance.GetComponentInParent<CarLoaderOnCar>())
 		{
 			var carLoaderID = CarLoaderRegistry.IdOfParent(__instance);
-			var car = ClientData.Instance.loadedCars[carLoaderID];
+			if (!ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) || car?.CarPartInfo == null) return;
 
 			if (FindPartInDictionaries(car, __instance, out var partType, out var key, out var index))
 				MelonCoroutines.Start(SendPartUpdate(car, carLoaderID, key, index, partType));
@@ -157,15 +159,16 @@ public static class PartUpdateHooks
 	public static void TakeOffCarPartHook(string name, bool off, CarLoader __instance) // handle both Mount/Unmount with the boolean
 	{
 		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+		if (SceneManager.CurrentScene() != GameScene.garage) return;
 
 		var carLoaderID = CarLoaderRegistry.IdOf(__instance);
-		var car = ClientData.Instance.loadedCars[carLoaderID];
+		if (!ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) || car?.CarPartInfo == null) return;
 
-		if (FindBodyPartInDictionary(car, name, out var key))
+		if (FindBodyPartInDictionary(car, name, out var key) &&
+		    car.CarPartInfo.BodyPartsReferences.TryGetValue(key, out var part))
 		{
 			// The player is working on this panel now: claim it before the write goes out.
 			ActionGate.TryBegin(LockKeys.Body(carLoaderID, key));
-			var part = car.CarPartInfo.BodyPartsReferences[key];
 			MelonCoroutines.Start(SendBodyPart(part, key, carLoaderID, Time.frameCount, off));
 		}
 	}
@@ -245,26 +248,34 @@ public static class PartUpdateHooks
 	{
 		yield return new WaitForEndOfFrame();
 
-		PartScript part;
+		PartScript part = null;
 		switch (partType)
 		{
 			case ModPartType.engine:
-				part = car.CarPartInfo.EnginePartsReferences[key];
+				if (car?.CarPartInfo == null || !car.CarPartInfo.EnginePartsReferences.TryGetValue(key, out part)) yield break;
 				break;
 			case ModPartType.engineStand:
-				if (carLoaderID == -1)
-					part = ClientData.Instance.engineStand.partReferences[key];
-				else
-					part = ClientData.Instance.engineStand2.partReferences[key];
+			{
+				var stand = carLoaderID == -1 ? ClientData.Instance.engineStand : ClientData.Instance.engineStand2;
+				if (stand?.partReferences == null || !stand.partReferences.TryGetValue(key, out part)) yield break;
 				break;
+			}
 			case ModPartType.suspension:
-				part = car.CarPartInfo.SuspensionPartsReferences[key][index.Value];
+			{
+				if (car?.CarPartInfo == null || !car.CarPartInfo.SuspensionPartsReferences.TryGetValue(key, out var list) ||
+				    list == null || !index.HasValue || index.Value < 0 || index.Value >= list.Count) yield break;
+				part = list[index.Value];
 				break;
+			}
 			case ModPartType.other:
-				part = car.CarPartInfo.OtherPartsReferences[key][index.Value];
+			{
+				if (car?.CarPartInfo == null || !car.CarPartInfo.OtherPartsReferences.TryGetValue(key, out var list) ||
+				    list == null || !index.HasValue || index.Value < 0 || index.Value >= list.Count) yield break;
+				part = list[index.Value];
 				break;
+			}
 			case ModPartType.driveshaft:
-				part = car.CarPartInfo.DriveshaftPartsReferences[key];
+				if (car?.CarPartInfo == null || !car.CarPartInfo.DriveshaftPartsReferences.TryGetValue(key, out part)) yield break;
 				break;
 			default:
 				yield break;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -362,26 +362,19 @@ public static class Inventory
 		if (!Client.Instance.isConnected)
 			return true;
 
-		var array = items.ToArray();
-		var snapshot = new List<string>();
-		for (int i = 0; i < array.Count; i++)
-			snapshot.Add(array[i].ID);
-		
-		var matches = new ConcurrentBag<int>();
-		Parallel.For(0, snapshot.Count, i =>
-		{
-			if (snapshot[i].IndexOf(id, StringComparison.OrdinalIgnoreCase) >= 0)
-				matches.Add(i);
-		});
-		
+		// `ToArray()` throws when the game list has no backing array (the rc12 finding), and a ConcurrentBag made the
+		// result order random: copy defensively and keep the list order.
+		var copy = SafeCopy(items);
+		var needle = id ?? string.Empty;
 		var newRes = new Il2CppSystem.Collections.Generic.List<BaseItem>();
-		foreach (int index in matches)
-			newRes.Add(array[index]);
+		foreach (var item in copy)
+			if (item?.ID != null && item.ID.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0)
+				newRes.Add(item);
 
 		__result = newRes;
 		return false;
 	}
-	
+
 	[HarmonyPatch(typeof(UIHelper), nameof(UIHelper.GetBaseItemsForIDExact))]
 	[HarmonyPrefix]
 	public static bool GetBaseItemsForIDExactFix(Il2CppSystem.Collections.Generic.List<Item> items,
@@ -389,30 +382,31 @@ public static class Inventory
 	{
 		if (!Client.Instance.isConnected) {return true;}
 
-		var array = items.ToArray();
-		var snapshotIds = new string[items.Count];
-		for (int i = 0; i < array.Count; i++)
-			snapshotIds[i] = array[i]?.ID;
-		
-		var matchedIndices = new ConcurrentBag<int>();
-		Parallel.For(0, snapshotIds.Length, i =>
-		{
-			var idValue = snapshotIds[i];
-			if (idValue != null && idValue == id)
-				matchedIndices.Add(i);
-		});
-		
-		var resultList = new Il2CppSystem.Collections.Generic.List<BaseItem>();
-		foreach (int index in matchedIndices)
-		{
-			var item = array[index];
-			if (item != null)
-				resultList.Add(item);
-		}
+		var copy = SafeCopy(items);
+		var newRes = new Il2CppSystem.Collections.Generic.List<BaseItem>();
+		foreach (var item in copy)
+			if (item != null && string.Equals(item.ID, id, StringComparison.Ordinal))
+				newRes.Add(item);
 
-		__result = resultList;
-		
+		__result = newRes;
 		return false;
+	}
+
+	/// <summary>Copies a game list without calling ToArray (null backing array) or indexing past its real storage.</summary>
+	private static List<Item> SafeCopy(Il2CppSystem.Collections.Generic.List<Item> items)
+	{
+		var copy = new List<Item>();
+		if (items == null) return copy;
+		try
+		{
+			var count = items.Count;
+			for (var i = 0; i < count; i++) copy.Add(items[i]);
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Inventory] Could not read the game's item list: {ex.Message}");
+		}
+		return copy;
 	}
 
 
@@ -464,6 +458,13 @@ public static class Inventory
 		if (gameGroups.TryGetValue(UId, out var tracked))
 		{
 			gameGroups.Remove(UId);
+			// Bulk sell captures group removals too; without this their money was client-claimed and the host never
+			// checked the removal.
+			if (captured != null)
+			{
+				captured.Add(UId);
+				return;
+			}
 			groups.Local(InventoryOp.Remove, tracked);
 		}
 	}

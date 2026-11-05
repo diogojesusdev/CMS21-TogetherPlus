@@ -1,7 +1,8 @@
-﻿using CMS21Together.ClientSide.Data.Handle;
+using CMS21Together.ClientSide.Data.Handle;
 using HarmonyLib;
 using MelonLoader;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Locks;
 
 namespace CMS21Together.ClientSide.Data.Garage.Car;
@@ -16,13 +17,15 @@ public static class CarSyncHooks
 	public static void SwitchCarPartHook(string name, CarLoader __instance)
 	{
 		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+		// QoL extra-parking loaders and other scenes are not garage cars; their ids would hit tracked ones.
+		if (SceneManager.CurrentScene() != GameScene.garage) return;
 
 		var carLoaderID = CarLoaderRegistry.IdOf(__instance);
-		var car = ClientData.Instance.loadedCars[carLoaderID];
+		if (!ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) || car?.CarPartInfo == null) return;
 
-		if (PartUpdateHooks.FindBodyPartInDictionary(car, name, out var key))
+		if (PartUpdateHooks.FindBodyPartInDictionary(car, name, out var key) &&
+		    car.CarPartInfo.BodyPartsReferences.TryGetValue(key, out var part))
 		{
-			var part = car.CarPartInfo.BodyPartsReferences[key];
 			MelonCoroutines.Start(PartUpdateHooks.SendBodyPart(part, key, carLoaderID));
 		}
 	}

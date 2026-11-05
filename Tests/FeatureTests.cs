@@ -251,6 +251,19 @@ public class FeatureTests
 	}
 
 	[Test]
+	public void ACampaignCarWithNoDebitIsRefusedInsteadOfDelivered()
+	{
+		var queue = new AwayCarQueue<string>();
+		var dropped = new List<(string, AwayCarOutcome)>();
+		Assert.That(queue.Add(2, 0, "u9", "free?", 0, requiresDebit: true), Is.True);
+		Assert.That(queue.Step((_, _) => TxnStatus.None, 1, (car, outcome) => dropped.Add((car.Car, outcome))), Is.Empty,
+			"the game may take the money a moment later");
+		Assert.That(queue.Step((_, _) => TxnStatus.None, AwayCarQueue<string>.NoDebitSeconds + 0.1,
+			(car, outcome) => dropped.Add((car.Car, outcome))), Is.Empty);
+		Assert.That(dropped, Is.EqualTo(new[] { ("free?", AwayCarOutcome.Refused) }), "no debit: never delivered");
+	}
+
+	[Test]
 	public void OnlyNewCarsCountAsBoughtAway()
 	{
 		var before = new List<(string, string)> { ("u1", "car_a"), (null, null), ("u2", "car_b"), (null, null) };
@@ -279,7 +292,7 @@ public class FeatureTests
 		Assert.That(queue.Add(2, 10, "u1", "paid again", 0), Is.False, "the same car is handed over once");
 		Assert.That(queue.Add(3, 7, "u2", "refused", 0), Is.True);
 		Assert.That(queue.Add(4, 3, "u3", "lost", 0), Is.True);
-		Assert.That(queue.Add(5, 0, "u4", "sandbox", 0), Is.True);
+		Assert.That(queue.Add(5, 0, "u4", "sandbox", 0, requiresDebit: false), Is.True);
 
 		var ready = queue.Step(Status, 1, Drop);
 		Assert.That(ready.Select(c => c.Car), Is.EqualTo(new[] { "sandbox" }), "no debit, nothing to wait for");

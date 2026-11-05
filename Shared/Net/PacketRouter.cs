@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using CMS21Together.Shared.Safety;
 
 namespace CMS21Together.Shared.Net;
 
@@ -88,7 +89,10 @@ public sealed class PacketRouter
 		{
 			var count = Bump(errorCounts, fromSlot);
 			if (count <= MaxLoggedPerPeer)
+			{
 				Log.Error($"[{name}] Handler for {NameOf(type)} ({type}, {frame.PayloadLength} B) from #{fromSlot} failed", ex);
+				CrashReport.Capture($"{name} handler for {NameOf(type)} from #{fromSlot}", ex);
+			}
 			if (count == MaxHandlerErrors)
 				PeerMisbehaved?.Invoke(fromSlot, $"Too many invalid packets ({count}).");
 			return false;

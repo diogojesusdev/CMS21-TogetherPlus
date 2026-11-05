@@ -1,11 +1,15 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using CMS21Together.ClientSide.Data.Garage.Tools;
+using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Data.Vanilla;
 using CMS21Together.Shared.Data.Vanilla.Cars;
 using MelonLoader;
 using UnityEngine;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Safety;
+using CrashReport = CMS21Together.Shared.Safety.CrashReport;
 
 namespace CMS21Together.ClientSide.Data.Garage.Car;
 
@@ -17,6 +21,7 @@ public static class PartsUpdater
 	/// <summary>Breadcrumb before the game applies a remote change (the last line before a native crash).</summary>
 	private static void Breadcrumb(int key, string message)
 	{
+		CrashReport.Note(message);
 		if (Log.IsEnabled(LogLevel.Info) && Trace.Allow(key, out var skipped))
 			Log.Info(message + LogThrottle.Skipped(skipped));
 	}
@@ -33,13 +38,18 @@ public static class PartsUpdater
 		
 		if (carLoaderID == -1)
 		{
-			while (!ClientData.Instance.engineStand.isHandled)
-				yield return new WaitForSeconds(.15f);
+			for (var counter = 0; counter < 25 && !ClientData.Instance.engineStand.isHandled; counter++)
+				yield return new WaitForSeconds(.5f);
 			yield return new WaitForEndOfFrame();
-			
+			if (ClientData.Instance.engineStand?.partReferences == null ||
+			    !ClientData.Instance.engineStand.partReferences.TryGetValue(partScript.partID, out var stand1Part))
+			{
+				Breadcrumb(TraceMissing, $"[Apply] Part {partScript.id} dropped: engine stand 1 does not know it.");
+				yield break;
+			}
 			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} (#{partScript.partID}) on engine stand 1, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
-				UpdatePartScript(partScript, ClientData.Instance.engineStand.partReferences[partScript.partID], -1);
+				UpdatePartScript(partScript, stand1Part, -1);
 			yield break;
 		}
 		if (carLoaderID == -2)
@@ -51,44 +61,65 @@ public static class PartsUpdater
 				counter++;
 			}
 			yield return new WaitForEndOfFrame();
-			
+			if (ClientData.Instance.engineStand2?.partReferences == null ||
+			    !ClientData.Instance.engineStand2.partReferences.TryGetValue(partScript.partID, out var stand2Part))
+			{
+				Breadcrumb(TraceMissing, $"[Apply] Part {partScript.id} dropped: engine stand 2 does not know it.");
+				yield break;
+			}
 			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} (#{partScript.partID}) on engine stand 2, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
-				UpdatePartScript(partScript, ClientData.Instance.engineStand2.partReferences[partScript.partID], -2);
+				UpdatePartScript(partScript, stand2Part, -2);
 			yield break;
 		}
 		
 		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var _car))
-			while (!_car.isReady)
+		{
+			var waited = 0;
+			while (!_car.isReady && waited++ < 100 && Client.Instance.isConnected)
 				yield return new WaitForSeconds(0.25f);
+			if (!_car.isReady || !Client.Instance.isConnected)
+			{
+				Breadcrumb(TraceMissing, $"[Apply] Part {partScript.id} dropped: car {carLoaderID} never became ready here.");
+				yield break;
+			}
+		}
 		yield return new WaitForEndOfFrame();
 
 		//Log.Info("[PartsUpdater->UpdatePartScripts] Car ready, updating..");
-		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car))
+		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) && car.CarPartInfo != null)
 		{
 			var key = partScript.partID;
 			var index = partScript.partIdNumber;
 
-			PartScript reference;
+			PartScript reference = null;
 
 			switch (partScript.type)
 			{
 				case ModPartType.engine:
-					reference = car.CarPartInfo.EnginePartsReferences[key];
+					if (!car.CarPartInfo.EnginePartsReferences.TryGetValue(key, out reference)) reference = null;
 					break;
 				case ModPartType.suspension:
-					reference = car.CarPartInfo.SuspensionPartsReferences[key][index];
+					if (car.CarPartInfo.SuspensionPartsReferences.TryGetValue(key, out var suspension) && suspension != null &&
+					    index >= 0 && index < suspension.Count) reference = suspension[index];
 					break;
 				case ModPartType.other:
-					reference = car.CarPartInfo.OtherPartsReferences[key][index];
+					if (car.CarPartInfo.OtherPartsReferences.TryGetValue(key, out var other) && other != null &&
+					    index >= 0 && index < other.Count) reference = other[index];
 					break;
 				case ModPartType.driveshaft:
-					reference = car.CarPartInfo.DriveshaftPartsReferences[key];
+					if (!car.CarPartInfo.DriveshaftPartsReferences.TryGetValue(key, out reference)) reference = null;
 					break;
 				default:
 					yield break;
 			}
 
+			if (reference == null)
+			{
+				Breadcrumb(TraceMissing, $"[Apply] Part {partScript.id} dropped: the car's part map has no {partScript.type} {key}/{index}.");
+				ClientSend.ResyncCar(carLoaderID);
+				yield break;
+			}
 			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} ({partScript.type} {key}/{index}) on car {carLoaderID} {car.carID}, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
 				UpdatePartScript(partScript, reference, carLoaderID);
@@ -173,10 +204,27 @@ public static class PartsUpdater
 
 		if (part.unmountWith != null)
 		{
+			// The sender's list and this game's live array can differ (variant, tuned engine, partly mounted).
+			// Match by part id first, fall back to the position only when it exists, and never index out of range.
+			var receiverChildren = reference.unmountWith != null ? reference.unmountWith.ToArray() : new PartScript[0];
 			for (var index = 0; index < part.unmountWith.Count; index++)
 			{
-				var partScript = part.unmountWith[index];
-				UpdatePartScript(partScript, reference.unmountWith.ToArray()[index], carLoaderID);
+				var child = part.unmountWith[index];
+				if (child == null) continue;
+				PartScript target = null;
+				foreach (var candidate in receiverChildren)
+					if (candidate != null && string.Equals(candidate.id, child.id, StringComparison.Ordinal))
+					{
+						target = candidate;
+						break;
+					}
+				if (target == null && index < receiverChildren.Length) target = receiverChildren[index];
+				if (target == null)
+				{
+					Log.Warn($"[Apply] No matching child for {child.id} on car {carLoaderID}; the group is partly applied.");
+					continue;
+				}
+				UpdatePartScript(child, target, carLoaderID);
 			}
 		}
 	}
@@ -184,17 +232,27 @@ public static class PartsUpdater
 	public static IEnumerator UpdateBodyParts(ModCarPart carPart, int carLoaderID)
 	{
 		CarChecks.Touched(carLoaderID);
+		if (carPart == null) yield break;
 		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var _car))
-			while (!_car.isReady)
+		{
+			var waited = 0;
+			while (!_car.isReady && waited++ < 100 && Client.Instance.isConnected)
 				yield return new WaitForSeconds(0.25f);
+			if (!_car.isReady || !Client.Instance.isConnected) yield break;
+		}
 		yield return new WaitForEndOfFrame();
 
 		Log.Debug("[PartsUpdater->UpdateBodyParts] Car ready, updating..");
-		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car))
+		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) && car.CarPartInfo != null)
 		{
 			var key = carPart.carPartID;
 
-			var reference = car.CarPartInfo.BodyPartsReferences[key];
+			if (!car.CarPartInfo.BodyPartsReferences.TryGetValue(key, out var reference) || reference == null)
+			{
+				Breadcrumb(TraceMissing, $"[Apply] Body part #{key} dropped: the car's map has no such panel.");
+				ClientSend.ResyncCar(carLoaderID);
+				yield break;
+			}
 			Breadcrumb(TraceBody, $"[Apply] Body part #{key} on car {carLoaderID} {car.carID}, unmounted={carPart.unmounted}, switched={carPart.switched}.");
 			using (ActionGate.Apply())
 				UpdateBodyPart(carPart, reference, carLoaderID);
@@ -205,11 +263,9 @@ public static class PartsUpdater
 
 	private static void UpdateBodyPart(ModCarPart carPart, CarPart reference, int carLoaderID)
 	{
-		if (carPart == null || reference == null)
-		{
-			Log.Warn("Invalid bodyPart!");
-			return;
-		}
+		if (carPart == null || reference == null) return;
+		if (GameData.Instance?.carLoaders == null || carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length ||
+		    GameData.Instance.carLoaders[carLoaderID] == null) return;
 
 		var color = carPart.colors.ToGame();
 		var tintColor = carPart.TintColor.ToGame();
@@ -260,10 +316,15 @@ public static class PartsUpdater
 
 		foreach (var _carPart in carPart.connectedParts)
 		{
+			if (_carPart == null) continue;
 			var key = _carPart.carPartID;
-			var _reference = ClientData.Instance.loadedCars[carLoaderID].CarPartInfo.BodyPartsReferences[key];
-			Log.Debug("[PartsUpdater->UpdateBodyParts] Updating BodyPart..");
-			UpdateBodyPart(_carPart, _reference, carLoaderID);
+			if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var connectedCar) &&
+			    connectedCar.CarPartInfo != null &&
+			    connectedCar.CarPartInfo.BodyPartsReferences.TryGetValue(key, out var _reference) && _reference != null)
+			{
+				Log.Debug("[PartsUpdater->UpdateBodyParts] Updating BodyPart..");
+				UpdateBodyPart(_carPart, _reference, carLoaderID);
+			}
 		}
 
 		if (carPart.isTinted && carPart.TintColor != null)
@@ -275,13 +336,34 @@ public static class PartsUpdater
 
 	public static IEnumerator UpdateFluid(ModFluidData fluid, int carLoaderID)
 	{
+		if (fluid?.CarFluid == null) yield break;
 		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var _car))
-			while (!_car.isReady)
+		{
+			var waited = 0;
+			while (!_car.isReady && waited++ < 100 && Client.Instance.isConnected)
 				yield return new WaitForSeconds(0.25f);
+			if (!_car.isReady || !Client.Instance.isConnected) yield break;
+		}
 		yield return new WaitForEndOfFrame();
 
+		if (GameData.Instance?.carLoaders == null || carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length ||
+		    GameData.Instance.carLoaders[carLoaderID]?.FluidsData == null)
+		{
+			Log.Warn($"[Apply] Fluid change for car {carLoaderID} dropped: the car is not loaded here.");
+			ClientSend.ResyncCar(carLoaderID);
+			yield break;
+		}
+
 		PartUpdateHooks.listen = false;
-		GameData.Instance.carLoaders[carLoaderID].FluidsData
-			.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
+		try
+		{
+			GameData.Instance.carLoaders[carLoaderID].FluidsData
+				.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
+		}
+		finally
+		{
+			// The hook consumes the flag on the first SetLevel; restore it even when the game call throws.
+			PartUpdateHooks.listen = true;
+		}
 	}
 }

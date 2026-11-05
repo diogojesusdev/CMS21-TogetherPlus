@@ -16,6 +16,14 @@ public static class CarEnterExit
 	private static bool wasInCar = false;
 	private static int lastCarLoaderID = -1;
 
+	/// <summary>A scene reload destroys the avatar but not this state; a stale "in car" hides the next one forever.</summary>
+	public static void Reset()
+	{
+		wasInCar = false;
+		lastCarLoaderID = -1;
+		lastEnginePlaying = false;
+	}
+
 	/// <summary>
 	/// Checks if the local player is currently inside a car.
 	/// This method should be called periodically to detect car enter/exit events.
@@ -92,31 +100,6 @@ public static class CarEnterExit
 				{
 					currentlyInCar = true;
 					currentCarLoaderID = closestCarID;
-				}
-			}
-			
-			// Business Logic: Fallback: Check distance if other checks didn't work
-			if (!currentlyInCar)
-			{
-				var cameraPos = mainCamera.transform.position;
-				
-				for (int i = 0; i < GameData.Instance.carLoaders.Length; i++)
-				{
-					var carLoader = GameData.Instance.carLoaders[i];
-					if (carLoader == null || carLoader.gameObject == null) continue;
-					if (string.IsNullOrEmpty(carLoader.carToLoad)) continue;
-
-					// Business Logic: Check if camera is very close to car interior (within 1.2 meters)
-					// This indicates player is likely inside the car
-					var carPos = carLoader.transform.position;
-					var distance = Vector3.Distance(cameraPos, carPos);
-					
-					if (distance < 1.2f)
-					{
-						currentlyInCar = true;
-						currentCarLoaderID = i;
-						break;
-					}
 				}
 			}
 		}

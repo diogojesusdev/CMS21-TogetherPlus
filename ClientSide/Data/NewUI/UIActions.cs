@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -340,9 +340,16 @@ public static class UIActions
 		return action;
 	}
 
+	private static bool launching;
+
+	/// <summary>A new menu: the host may start a game again.</summary>
+	public static void ResetLaunch() => launching = false;
+
 	public static void StartGame(int save_index)
 	{
 		if (ServerData.Instance == null) return;
+		// A double click used to start two loads (two StartGame + two StartPacket on every client).
+		if (launching) return;
 
 		foreach (var player in ServerData.Instance.connectedClients.Values)
 		{
@@ -352,30 +359,48 @@ public static class UIActions
 				return;
 			}
 		}
-		MelonCoroutines.Start(GameLaunch(save_index));
+		launching = true;
+		try
+		{
+			MelonCoroutines.Start(GameLaunch(save_index));
+		}
+		catch (Exception ex)
+		{
+			launching = false;
+			Log.Error("[UI] Starting the game failed", ex);
+		}
 	}
 
 	private static IEnumerator GameLaunch(int save_index)
 	{
 		yield return new WaitForEndOfFrame();
 		
-		SavesManager.StartGame(save_index);
-		int i = 0;
-		Dictionary<int, ModNewCarData> parksCars = new Dictionary<int, ModNewCarData>();
-		foreach (NewCarData carData in SavesManager.currentSave.carsOnParking)
+		try
 		{
-			if (carData != null && !String.IsNullOrEmpty(carData.carToLoad))
+			SavesManager.StartGame(save_index);
+			int i = 0;
+			Dictionary<int, ModNewCarData> parksCars = new Dictionary<int, ModNewCarData>();
+			foreach (NewCarData carData in SavesManager.currentSave.carsOnParking)
 			{
-				parksCars.Add(i, new ModNewCarData(carData));
+				if (carData != null && !String.IsNullOrEmpty(carData.carToLoad))
+				{
+					parksCars.Add(i, new ModNewCarData(carData));
+				}
+				i++;	
 			}
-			i++;	
+			ServerSend.StartPacket(SavesManager.ModSaves[save_index].selectedGamemode, parksCars);
+			Server.Instance.GameStarted = true;
+			
+			SavesManager.ModSaves[save_index].alreadyLoaded = true;
+			if (SavesManager.ModSaves[save_index].additionnalStand != null)
+				ServerData.Instance.engineStand2 = SavesManager.ModSaves[save_index].additionnalStand;
+			SavesManager.SaveModSave(save_index);
 		}
-		ServerSend.StartPacket(SavesManager.ModSaves[save_index].selectedGamemode, parksCars);
-		Server.Instance.GameStarted = true;
-		
-		SavesManager.ModSaves[save_index].alreadyLoaded = true;
-		if (SavesManager.ModSaves[save_index].additionnalStand != null)
-			ServerData.Instance.engineStand2 = SavesManager.ModSaves[save_index].additionnalStand;
-		SavesManager.SaveModSave(save_index);
+		catch (Exception ex)
+		{
+			launching = false;
+			Log.Error("[UI] The game launch failed", ex);
+			throw;
+		}
 	}
 }

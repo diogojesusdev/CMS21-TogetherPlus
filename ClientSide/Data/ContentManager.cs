@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -96,6 +96,10 @@ public class ContentManager
 		}
 	}
 	
+	/// <summary>The same check, off the main thread: the menu used to block for up to 5 s on the HTTP call.</summary>
+	public System.Threading.Tasks.Task<VersionStatus> IsNewVersionAvailableAsync(string versionName) =>
+		System.Threading.Tasks.Task.Run(() => IsNewVersionAvailable(versionName));
+
 	private (Version, int) ParseVersion(string versionStr)
 	{
 		int hf = 0;

@@ -169,7 +169,7 @@ public static class CarSpawnManager
 		if (data.jobID != -1)
 			carLoader.SetCustomerCar(true, data.jobID);
 		MainMod.StartCoroutine(carLoader.LoadCarFromFile(carData));
-		var car = new ModCar(carLoaderID, data.carToLoad, data.configVersion);
+		var car = new ModCar(carLoaderID, data.carToLoad, data.configVersion, data.carPosition, data.customerCar);
 		ClientData.Instance.loadedCars[carLoaderID] = car;
 		MelonCoroutines.Start(PartsReferencer.GetPartReferences(ClientData.Instance.loadedCars[carLoaderID]));
 

@@ -1,4 +1,4 @@
-﻿// Based on InventoryBulkSellSync.cs from FixForTogether by TogetherFixer
+// Based on InventoryBulkSellSync.cs from FixForTogether by TogetherFixer
 // (https://github.com/Stevii001100/Fix-For-CMS21-Together), custom non-commercial licence.
 // Modified for Together+: same patch target; the sale is settled by the host (items removed from the shared
 // inventory once, the credit paid into the shared wallet once) instead of each game crediting itself.
@@ -106,10 +106,18 @@ public sealed class BulkSellFeature : GameFeature
 		if (server?.Inventory == null || !Features.InSession(FeatureCatalog.BulkSell)) return;
 		var credit = BulkSale.Settle(uids, total, uid =>
 		{
-			if (!server.Inventory.Authority.TryGet(uid, out var item)) return false;
-			if (server.Locks != null && server.Locks.Manager.Conflict(fromClient, LockKeys.Item(uid)) != 0) return false;
-			server.Inventory.Correct(InventoryOp.Remove, item);
-			return true;
+			// The UID may name a single item or a group (wheels, engines); settle against the right authority.
+			if (server.Inventory?.Authority.TryGet(uid, out var item) == true)
+			{
+				if (server.Locks != null && server.Locks.Manager.Conflict(fromClient, LockKeys.Item(uid)) != 0) return false;
+				return server.Inventory.Correct(InventoryOp.Remove, item) == InventoryResult.Removed;
+			}
+			if (server.GroupInventory?.Authority.TryGet(uid, out var group) == true)
+			{
+				if (server.Locks != null && server.Locks.Manager.Conflict(fromClient, LockKeys.Group(uid)) != 0) return false;
+				return server.GroupInventory.Correct(InventoryOp.Remove, group) == InventoryResult.Removed;
+			}
+			return false;
 		}, out var sold);
 		var paid = Data.ClientData.Instance != null && Data.ClientData.Instance.gamemode != Gamemode.Sandbox;
 		var status = credit > 0 && paid ? server.Economy?.Grant(fromClient, credit) ?? TxnStatus.NotReady : TxnStatus.Applied;

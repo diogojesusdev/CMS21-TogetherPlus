@@ -1,10 +1,12 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using CMS21Together.ServerSide;
 using CMS21Together.Shared;
 using CMS21Together.Shared.Data;
 using MelonLoader;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace CMS21Together.ClientSide.Data.NewUI;
 
@@ -150,7 +152,7 @@ public static class UILobby
 		backRect.anchoredPosition = new Vector2(0, 99);
 	}
 
-	public static GameObject AddPlayer(string username="Waiting for player...", int index=1)
+	public static GameObject AddPlayer(string username="Waiting for player...", int index=1, int playerId=0)
 	{
 		int pos = WindowHeight / 2 - 155 - (index - 1) * RowStep;
 		
@@ -182,7 +184,11 @@ public static class UILobby
 		playerStatusTxtRect.anchoredPosition = new Vector2(40, 28);
 		playerStatusTxt.color = Color.red;
 		
-		var backBtn = UIElements.CreateButton(player.transform, "Kick", null);
+		// The host may kick anyone but itself; every other row gets a disabled button (as before).
+		var canKick = playerId > 0 && playerId != ClientData.UserData.playerID &&
+		              Client.Instance != null && Client.Instance.IsHost;
+		Action kick = canKick ? () => Server.Instance?.Kick(playerId, "Kicked by the host.") : (Action)null;
+		var backBtn = UIElements.CreateButton(player.transform, "Kick", kick);
 		var backRect = backBtn.GetComponent<RectTransform>();
 		backRect.anchorMin = new Vector2(1f, 0f);
 		backRect.anchorMax = new Vector2(1f, 0f);
@@ -207,7 +213,7 @@ public static class UILobby
 
 		foreach (UserData data in ClientData.Instance.connectedClients.Values)
 		{
-			var p = AddPlayer(data.username, i + 1);
+			var p = AddPlayer(data.username, i + 1, data.playerID);
 			if (p == null)
 			{
 				Log.Warn($"[UILobby] AddPlayer returned null for {data.username}");

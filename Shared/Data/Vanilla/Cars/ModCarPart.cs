@@ -63,11 +63,21 @@ public class ModCarPart
 		Dust = _part.Dust;
 		washFactor = _part.WashFactor;
 
-		foreach (var attachedPart in _part.ConnectedParts)
+		var loader = GameData.Instance?.carLoaders != null && carLoaderID >= 0 &&
+		             carLoaderID < GameData.Instance.carLoaders.Length
+			? GameData.Instance.carLoaders[carLoaderID]
+			: null;
+		if (loader != null && ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car) && car?.CarPartInfo != null)
 		{
-			var part = GameData.Instance.carLoaders[carLoaderID].GetCarPart(attachedPart);
-			PartUpdateHooks.FindBodyPartInDictionary(ClientData.Instance.loadedCars[carLoaderID], attachedPart, out var key);
-			connectedParts.Add(new ModCarPart(part, key, carLoaderID));
+			foreach (var attachedPart in _part.ConnectedParts)
+			{
+				var part = loader.GetCarPart(attachedPart);
+				// A connected part that cannot be resolved has no key: sending it with the default 0 made every
+				// receiver overwrite body panel 0.
+				if (part == null) continue;
+				if (!PartUpdateHooks.FindBodyPartInDictionary(car, attachedPart, out var key, false)) continue;
+				connectedParts.Add(new ModCarPart(part, key, carLoaderID));
+			}
 		}
 
 		quality = _part.Quality;

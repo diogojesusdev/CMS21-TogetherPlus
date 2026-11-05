@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -182,7 +182,8 @@ public static class ServerHandle
 	public static void PositionPacket(int fromClient, Packet packet)
 	{
 		var _position = packet.Read<Vector3Serializable>();
-		ServerData.Instance.connectedClients[fromClient].position = _position;
+		if (!ServerData.Instance.connectedClients.TryGetValue(fromClient, out var mover)) return;
+		mover.position = _position;
 
 		ServerSend.PositionPacket(fromClient, _position);
 	}
@@ -272,7 +273,8 @@ public static class ServerHandle
 		int points = packet.ReadInt();
 		
 		//Log.Info($"Received PointPacket Packet : {points}");
-		ServerData.Instance.connectedClients[fromClient].playerSkillPoints = points;
+		if (ServerData.Instance.connectedClients.TryGetValue(fromClient, out var player))
+			player.playerSkillPoints = points;
 	}
 
 	public static void LifterPacket(int fromClient, Packet packet)
@@ -563,6 +565,9 @@ public static class ServerHandle
 
 		//Log.Info("SV: Received JobAction!");
 		ServerData.Instance.RemoveJob(job.id);
+		// An accepted order moves from the board to the accepted list; without this mirror a late-join resync sends
+		// the customer car but not its order.
+		if (takeJob) ServerData.Instance.UpdateSelectedJobs(job, true);
 		ServerSend.JobActionPacket(fromClient, job, takeJob);
 	}
 
@@ -591,15 +596,28 @@ public static class ServerHandle
 	public static void EndJobPacket(int fromClient, Packet packet)
 	{
 		var job = packet.Read<ModJob>();
-		// Only the player the host let hand the order over may end it (Phase 6): a second hand-over is never applied.
-		if (Server.Instance?.Payouts?.Done(PurchaseKind.JobEnd, job.id.ToString()) != true)
+		// Only the player the host approved may hand the order over, and the payout is granted here (not on the ask):
+		// a lost answer no longer pays without completing, and the amount comes from the host's own order when known.
+		var stored = ServerData.Instance.selectedJobs.FirstOrDefault(j => j.id == job.id)
+		             ?? ServerData.Instance.jobs.FirstOrDefault(j => j.id == job.id);
+		var amount = Math.Min((long)Math.Max(0, stored?.TotalPayout ?? job.TotalPayout), EconomyLedger.MaxMoneyDelta);
+		var paid = ClientData.Instance == null || ClientData.Instance.gamemode != Gamemode.Sandbox;
+		var status = Server.Instance?.Payouts?.CompleteEnd(fromClient, job.id.ToString(), amount, paid) ?? TxnStatus.NotReady;
+		if (status != TxnStatus.Applied)
 		{
-			Log.Warn($"[ServerHandle] #{fromClient} ended order {job.id} without the host's approval; ignored.");
+			Log.Warn($"[ServerHandle] #{fromClient} ended order {job.id} without the host's approval ({status}); ignored.");
 			return;
 		}
 
 		//Log.Info("SV : endjob !");
 		ServerData.Instance.EndJob(job);
+		// The hand-over deletes the car on every game without sending a delete: drop the host's stored copy too, or a
+		// late join/resync re-sends a customer car whose order no longer exists.
+		if (job.carLoaderID >= 0)
+		{
+			ServerData.Instance.DeleteCar(job.carLoaderID);
+			Server.Instance?.CarDetector?.Touched(job.carLoaderID);
+		}
 		ServerSend.EndJobPacket(fromClient, job);
 	}
 
@@ -607,7 +625,8 @@ public static class ServerHandle
 	{
 		var scene = packet.Read<GameScene>();
 
-		ServerData.Instance.connectedClients[fromClient].scene = scene;
+		if (!ServerData.Instance.connectedClients.TryGetValue(fromClient, out var user)) return;
+		user.scene = scene;
 		Server.Instance?.Locks?.PlayerChangedScene(fromClient);
 		ServerSend.SceneChangePacket(fromClient, scene);
 	}
@@ -671,9 +690,11 @@ public static class ServerHandle
 		if ((ModWheelBalancerActionType)aType == ModWheelBalancerActionType.start ||(ModWheelBalancerActionType)aType == ModWheelBalancerActionType.setGroup)
 		{
 			item = packet.Read<ModGroupItem>();
+			ServerData.Instance.SetWheelBalancerState(item);
 			ServerSend.WheelBalancerPacket(fromClient, (ModWheelBalancerActionType)aType, item);
 			return;
 		}
+		ServerData.Instance.SetWheelBalancerState(null);
 		ServerSend.WheelBalancerPacket(fromClient, (ModWheelBalancerActionType)aType);
 	}
 	
@@ -810,6 +831,11 @@ public static class ServerHandle
 				break;
 			case PacketTypes.garageUpgrade:
 				ServerResyncs.ResyncUpgrade(fromClient);
+				break;
+			case PacketTypes.setSpringClamp:
+			case PacketTypes.setTireChanger:
+			case PacketTypes.wheelBalance:
+				ServerResyncs.ResyncStations(fromClient);
 				break;
 			case PacketTypes.engineStandSetGroup:
 				bool alt = packet.Read<bool>();

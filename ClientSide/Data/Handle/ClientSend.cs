@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using CMS21Together.Shared.World;
 using CMS21Together.ClientSide.Data.Garage;
 using CMS21Together.ClientSide.Data.Garage.Tools;
@@ -414,6 +414,16 @@ public class ClientSend
 		using (var packet = new Packet((int)PacketTypes.resync))
 		{
 			packet.Write(PacketTypes.toolMove);
+			SendData(packet);
+		}
+	}
+
+	/// <summary>Contents of the spring clamp, tire changer and wheel balancer (the server reads this marker).</summary>
+	public static void ResyncStations()
+	{
+		using (var packet = new Packet((int)PacketTypes.resync))
+		{
+			packet.Write(PacketTypes.setSpringClamp);
 			SendData(packet);
 		}
 	}

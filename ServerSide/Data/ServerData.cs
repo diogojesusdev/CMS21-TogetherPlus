@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CMS21Together.ClientSide.Data;
@@ -52,6 +52,7 @@ public class ServerData
 			CarSpawnDatas.Remove(carLoaderID);
 		if (CarPartInfo.ContainsKey(carLoaderID))
 			CarPartInfo.Remove(carLoaderID);
+		LifterStates.Remove(carLoaderID);
 		Server.Instance?.FeatureRelay?.ForgetCar(carLoaderID);
 	}
 
@@ -139,6 +140,9 @@ public class ServerData
 
 	public void AddJob(ModJob job)
 	{
+		// The host's client re-sends its whole board after every garage load, and a late join replays the list: the
+		// server mirrors one entry per order id.
+		if (job == null || jobs.Any(j => j.id == job.id)) return;
 		jobs.Add(job);
 	}
 
@@ -236,7 +240,47 @@ public class ServerData
 
 	public void UpdateFluid(ModFluidData fluid, int carLoaderID)
 	{
-		//Log.Info("Not implemented..."); TODO: Implement this
+		if (fluid?.CarFluid == null) return;
+		if (!CarSpawnDatas.TryGetValue(carLoaderID, out var car) || car == null) return;
+
+		// The live packet already reaches every connected player; this keeps the stored car (late join, scene
+		// return, resync) in step, or the resynced copy reverts the fluid level.
+		var fluids = car.FluidsData;
+		switch ((ModCarFluidType)fluid.CarFluid.FluidType)
+		{
+			case ModCarFluidType.EngineOil:
+				fluids.Oil = fluid;
+				break;
+			case ModCarFluidType.Brake:
+				fluids.Brake = MergeFluid(fluids.Brake, fluid);
+				break;
+			case ModCarFluidType.EngineCoolant:
+				fluids.EngineCoolant = MergeFluid(fluids.EngineCoolant, fluid);
+				break;
+			case ModCarFluidType.PowerSteering:
+				fluids.PowerSteering = MergeFluid(fluids.PowerSteering, fluid);
+				break;
+			case ModCarFluidType.WindscreenWash:
+				fluids.WindscreenWash = MergeFluid(fluids.WindscreenWash, fluid);
+				break;
+			default:
+				return;
+		}
+		car.FluidsData = fluids;
+	}
+
+	private static List<ModFluidData> MergeFluid(List<ModFluidData> list, ModFluidData fluid)
+	{
+		list ??= new List<ModFluidData>();
+		var id = fluid.CarFluid.ID;
+		for (var i = 0; i < list.Count; i++)
+			if (list[i]?.CarFluid != null && list[i].CarFluid.ID == id)
+			{
+				list[i] = fluid;
+				return list;
+			}
+		list.Add(fluid);
+		return list;
 	}
 
 	public void SetEngineOnStand(ModGroupItem engineGroup, Vector3Serializable position, bool alt)
@@ -321,7 +365,9 @@ public class ServerData
 		if (!CarPartInfo.TryGetValue(loaderID, out var car))
 			return;
 
-		if (interior)
+		// `interior == false` is an exterior wash (see CarWashLogic): it cleans the body panels, while the interior
+		// branch reconditions the seats/bench/steering wheel. The two branches used to be swapped here.
+		if (!interior)
 		{
 			foreach (KeyValuePair<int, ModCarPart> part in car.BodyPartsReferences)
 			{
@@ -375,12 +421,34 @@ public class ServerData
 	{
 		if (!CarPartInfo.ContainsKey(loaderID))
 			return;
-		
-		ModCarPart part = GetCarPart(loaderID, "body");
-		part.condition = 1;
-		part.dent = 1;
-		ModCarPart part2 = GetCarPart(loaderID, "details");
-		part2.dent = 1;
+
+		// `body`/`details` are only present here if a client actually sent that panel; the shell is never taken off.
+		// Dereferencing a missing panel used to throw on every weld, so the packet was never relayed.
+		var body = GetCarPart(loaderID, "body");
+		var details = GetCarPart(loaderID, "details");
+		if (body != null)
+		{
+			body.condition = 1;
+			body.dent = 1;
+		}
+		else
+			Log.Warn($"[ServerData] Weld on car {loaderID}: the host has no stored body panel; the car resync will heal it.");
+		if (details != null)
+			details.dent = 1;
+
+		// Keep the resync blob in step (late join / scene return) when the panel is in it.
+		if (!CarSpawnDatas.TryGetValue(loaderID, out var spawn) || spawn?.BodyPartsData == null) return;
+		foreach (var stored in spawn.BodyPartsData)
+		{
+			if (stored == null) continue;
+			if (string.Equals(stored.Id, body != null ? body.name : "body", StringComparison.OrdinalIgnoreCase))
+			{
+				stored.Condition = 1;
+				stored.Dent = 1;
+			}
+			else if (string.Equals(stored.Id, details != null ? details.name : "details", StringComparison.OrdinalIgnoreCase))
+				stored.Dent = 1;
+		}
 	}
 
 	public void AddCarToPark(ModNewCarData car, int index)

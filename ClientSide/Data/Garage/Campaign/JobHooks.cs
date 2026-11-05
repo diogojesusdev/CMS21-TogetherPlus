@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Linq;
 using CMS.Containers;
 using CMS.Extensions;
@@ -9,6 +9,7 @@ using CMS.UI.Windows;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.ServerSide;
+using CMS21Together.ServerSide.Data;
 using CMS21Together.Shared.Data.Vanilla.Cars;
 using CMS21Together.Shared.Data.Vanilla.Jobs;
 using HarmonyLib;
@@ -31,10 +32,14 @@ public static class JobHooks
 		
 		if (Server.Instance.isRunning)
 		{
+			var known = ServerData.Instance?.jobs;
 			foreach (Job job in __instance.jobs.ToArray())
 			{
+				// A garage reload loads the same board again: only announce what the host does not know yet.
+				var modJob = new ModJob(job);
+				if (known != null && known.Any(j => j.id == modJob.id)) continue;
 				//Log.Info($"[Hook->LoadHook] Sent new job.");
-				ClientSend.JobPacket(new ModJob(job));
+				ClientSend.JobPacket(modJob);
 			}
 			
 			foreach (Job job in __instance.selectedJobs.ToArray())
@@ -90,6 +95,9 @@ public static class JobHooks
 	public static void GenerateNewJobHook(OrderGenerator __instance)
 	{
 		if (!Client.Instance.isConnected) return;
+		// Only the host owns the board (the prefix cancels generation on clients, but a postfix still runs after a
+		// skipped original).
+		if (!Server.Instance.isRunning) return;
 		
 		if (__instance.jobs.Count <= 0) return;
 		//Log.Info("[Hook->GenerateNewJobHook] Generated new job");
@@ -239,6 +247,8 @@ public static class JobHooks
 		}
 		
 		// Everybody else deletes the car when the hand-over arrives; this delete is not gated or sent again.
+		var carLoaderID = carLoader != null ? CarLoaderRegistry.IdOf(carLoader) : -1;
+		if (carLoaderID >= 0) ClientData.Instance.loadedCars.Remove(carLoaderID);
 		CarSpawnHooks.listenToDelete = false;
 		try
 		{

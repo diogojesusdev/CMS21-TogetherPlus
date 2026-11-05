@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using CMS21Together.ClientSide.Data;
@@ -257,7 +257,7 @@ public static class ServerSend
 		}
 	}
 
-	public static void SetSpringClampPacket(int fromClient, ModGroupItem item, bool instant, bool mount)
+	public static void SetSpringClampPacket(int fromClient, ModGroupItem item, bool instant, bool mount, bool resync = false)
 	{
 		using (var packet = new Packet((int)PacketTypes.setSpringClamp))
 		{
@@ -265,7 +265,8 @@ public static class ServerSend
 			packet.Write(instant);
 			packet.Write(mount);
 
-			SendDataToAll(fromClient, packet);
+			if (!resync) SendDataToAll(fromClient, packet);
+			else SendData(fromClient, packet);
 		}
 	}
 
@@ -277,7 +278,7 @@ public static class ServerSend
 		}
 	}
 
-	public static void SetTireChangerPacket(int fromClient, ModGroupItem item, bool instant, bool connect)
+	public static void SetTireChangerPacket(int fromClient, ModGroupItem item, bool instant, bool connect, bool resync = false)
 	{
 		using (var packet = new Packet((int)PacketTypes.setTireChanger))
 		{
@@ -285,7 +286,8 @@ public static class ServerSend
 			packet.Write(instant);
 			packet.Write(connect);
 
-			SendDataToAll(fromClient, packet);
+			if (!resync) SendDataToAll(fromClient, packet);
+			else SendData(fromClient, packet);
 		}
 	}
 
@@ -399,14 +401,15 @@ public static class ServerSend
 
 	#endregion
 
-	public static void WheelBalancerPacket(int fromClient, ModWheelBalancerActionType aType, ModGroupItem item=null)
+	public static void WheelBalancerPacket(int fromClient, ModWheelBalancerActionType aType, ModGroupItem item=null, bool resync = false)
 	{
 		using (Packet _packet = new Packet((int)PacketTypes.wheelBalance))
 		{
 			_packet.Write(aType);
 			if(item != null)   {_packet.Write(item);}
 
-			SendDataToAll(fromClient, _packet);
+			if (!resync) SendDataToAll(fromClient, _packet);
+			else SendData(fromClient, _packet);
 		}
 	}
 

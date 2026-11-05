@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Data.Vanilla;
@@ -115,6 +115,19 @@ public static class ServerResyncs
 		{
 			ServerSend.ToolsMovePacket(fromClient, tool.Key, tool.Value, false, true);
 		}
+	}
+
+	/// <summary>Contents of the spring clamp, tire changer and wheel balancer, for a joiner or a scene return.</summary>
+	public static void ResyncStations(int playerID)
+	{
+		var data = ServerData.Instance;
+		if (data == null) return;
+		if (data.springClamp.groupItem != null)
+			ServerSend.SetSpringClampPacket(playerID, data.springClamp.groupItem, true, true, true);
+		if (data.tireChanger.groupItem != null)
+			ServerSend.SetTireChangerPacket(playerID, data.tireChanger.groupItem, true, true, true);
+		if (data.wheelBalancer.groupItem != null)
+			ServerSend.WheelBalancerPacket(playerID, ModWheelBalancerActionType.setGroup, data.wheelBalancer.groupItem, true);
 	}
 	
 	public static void ResyncPark(int fromClient)

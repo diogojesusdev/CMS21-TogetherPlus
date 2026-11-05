@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.ClientSide.Data.Player;
@@ -11,7 +11,8 @@ namespace CMS21Together.ClientSide.Data;
 /// <summary>
 /// Recovery keys (Phase 6, the Together Fixes debug/recovery menu, plan §3.7). Ctrl+Shift+R: forced resync, i.e. the
 /// cars are checked against the host's now, and the shared inventory and wallet are fetched again. Ctrl+Shift+L: writes
-/// the locks, the wallet and (on the host) the ledger's last entries to the log, for bug reports.
+/// the locks, the wallet and (on the host) the ledger's last entries to the log, for bug reports. Ctrl+Shift+E: copies
+/// the last stopped-action report to the clipboard.
 /// </summary>
 public static class Recovery
 {
@@ -24,12 +25,14 @@ public static class Recovery
 		if (!(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))) return;
 		var resync = Input.GetKeyDown(KeyCode.R);
 		var report = Input.GetKeyDown(KeyCode.L);
-		if (!resync && !report) return;
+		var copyError = Input.GetKeyDown(KeyCode.E);
+		if (!resync && !report && !copyError) return;
 		if (Time.unscaledTime < nextAllowed) return;
 		nextAllowed = Time.unscaledTime + 2f;
 		try
 		{
 			if (resync) Resync();
+			else if (copyError) CrashUI.CopyLast();
 			else Report();
 		}
 		catch (Exception ex)

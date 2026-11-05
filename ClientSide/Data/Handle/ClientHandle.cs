@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using CMS21Together.ClientSide.Data.Garage;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,6 +14,7 @@ using CMS21Together.Shared.Data.Vanilla.Cars;
 using CMS21Together.Shared.Data.Vanilla.GarageTool;
 using CMS21Together.Shared.Data.Vanilla.Jobs;
 using CMS21Together.Shared.Persistence;
+using CMS21Together.Shared.Safety;
 using MelonLoader;
 using UnityEngine;
 
@@ -146,7 +147,7 @@ public static class ClientHandle
 		var carLoaderID = packet.ReadInt();
 		if (GameData.Instance == null || carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length) return;
 		if (!ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) return;
-		MelonCoroutines.Start(LifterLogic.MoveTo(carLoaderID, state));
+		MelonCoroutines.Start(Guard.Coroutine("Apply lifter", LifterLogic.MoveTo(carLoaderID, state)));
 	}
 
 	public static void SetTireChangerPacket(Packet packet)
@@ -199,7 +200,8 @@ public static class ClientHandle
 	{
 		int carLoaderID = _packet.ReadInt();
 
-		MelonCoroutines.Start(Garage.Tools.WelderLogic.UseWelder(carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Apply weld", Garage.Tools.WelderLogic.UseWelder(carLoaderID),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 	
 	public static void SetSpringClampPacket(Packet packet)
@@ -236,7 +238,8 @@ public static class ClientHandle
 		int carLoaderID = _packet.ReadInt();
 		bool interior = _packet.Read<bool>();
 
-		MelonCoroutines.Start(Garage.Tools.CarWashLogic.WashCar(carLoaderID, interior));
+		MelonCoroutines.Start(Guard.Coroutine("Apply car wash", Garage.Tools.CarWashLogic.WashCar(carLoaderID, interior),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 	
 	public static void CarPaintPacket(Packet _packet)
@@ -254,7 +257,8 @@ public static class ClientHandle
 
 		//Log.Info("[ClientHandle->LoadCarPacket] Received new car info.");
 
-		MelonCoroutines.Start(CarSpawnManager.LoadCarFromServer(carData, carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Load car from host", CarSpawnManager.LoadCarFromServer(carData, carLoaderID),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 
 	public static void BodyPartPacket(Packet packet)
@@ -263,7 +267,8 @@ public static class ClientHandle
 		var carLoaderID = packet.ReadInt();
 
 		//Log.Info("[ClientHandle->BodyPartPacket] Receive BodyPart.");
-		MelonCoroutines.Start(PartsUpdater.UpdateBodyParts(carPart, carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Apply body part", PartsUpdater.UpdateBodyParts(carPart, carLoaderID),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 
 	public static void PartScriptPacket(Packet packet)
@@ -272,7 +277,8 @@ public static class ClientHandle
 		var carLoaderID = packet.ReadInt();
 
 		Log.Debug("[ClientHandle->PartScriptPacket] Receive PartScript.");
-		MelonCoroutines.Start(PartsUpdater.UpdatePartScripts(partScript, carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Apply part", PartsUpdater.UpdatePartScripts(partScript, carLoaderID),
+			() => { if (carLoaderID >= 0) ClientSend.ResyncCar(carLoaderID); }));
 	}
 
 	public static void DeleteCarPacket(Packet packet)
@@ -361,10 +367,12 @@ public static class ClientHandle
 		if (action == 1)
 		{
 			ModGroupItem item = packet.Read<ModGroupItem>();
-			MelonCoroutines.Start(EngineCrane.InsertEngineIntoCar(item));
+			MelonCoroutines.Start(Guard.Coroutine("Apply crane insert", EngineCrane.InsertEngineIntoCar(item, carLoaderID),
+				() => { if (carLoaderID >= 0) ClientSend.ResyncCar(carLoaderID); }));
 			return;
 		}
-		MelonCoroutines.Start(EngineCrane.UseEngineCrane(carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Apply crane pull", EngineCrane.UseEngineCrane(carLoaderID),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 	
 	public static void EngineSetGroupPacket(Packet packet)
@@ -373,13 +381,15 @@ public static class ClientHandle
 		Vector3Serializable position = packet.Read<Vector3Serializable>();
 		bool alt = packet.Read<bool>();
 		
-		MelonCoroutines.Start(EngineStand.TakeOnEngineFromStand(engineGroup, position, alt));
+		MelonCoroutines.Start(Guard.Coroutine("Apply engine stand", EngineStand.TakeOnEngineFromStand(engineGroup, position, alt),
+			() => ClientSend.ResyncEngineStandPacket(alt)));
 	}
 	public static void EngineTakeOffPacket(Packet packet)
 	{
 		bool alt = packet.Read<bool>();
 		
-		MelonCoroutines.Start(EngineStand.TakeOffEngineFromStand(alt));
+		MelonCoroutines.Start(Guard.Coroutine("Clear engine stand", EngineStand.TakeOffEngineFromStand(alt),
+			() => ClientSend.ResyncEngineStandPacket(alt)));
 	}
 	
 	public static void EngineStandAnglePacket(Packet packet)
@@ -387,7 +397,8 @@ public static class ClientHandle
 		float angle = packet.Read<float>();
 		bool alt = packet.Read<bool>();
 		
-		MelonCoroutines.Start(EngineStand.IncreaseEngineStandAngle(angle, alt));
+		MelonCoroutines.Start(Guard.Coroutine("Apply engine stand angle", EngineStand.IncreaseEngineStandAngle(angle, alt),
+			() => ClientSend.ResyncEngineStandPacket(alt)));
 	}
 	
 	public static void RepairPartPacket(Packet packet)
@@ -404,7 +415,8 @@ public static class ClientHandle
 		var carLoaderID = packet.ReadInt();
 		ModFluidData fluid = packet.Read<ModFluidData>();
 		
-		MelonCoroutines.Start(PartsUpdater.UpdateFluid(fluid, carLoaderID));
+		MelonCoroutines.Start(Guard.Coroutine("Apply fluid", PartsUpdater.UpdateFluid(fluid, carLoaderID),
+			() => ClientSend.ResyncCar(carLoaderID)));
 	}
 	
 	public static void AddCarToParkPacket(Packet packet)

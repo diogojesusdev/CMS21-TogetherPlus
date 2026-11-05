@@ -1,4 +1,4 @@
-﻿// Based on ParkingAdd.cs, ParkingRemove.cs, ParkingMove.cs and ParkingRowsSync.cs from FixForTogether by TogetherFixer
+// Based on ParkingAdd.cs, ParkingRemove.cs, ParkingMove.cs and ParkingRowsSync.cs from FixForTogether by TogetherFixer
 // (https://github.com/Stevii001100/Fix-For-CMS21-Together), custom non-commercial licence.
 // Modified for Together+: same patch targets; parking and taking a car out are approved by the host first (one
 // player parks at a time, a space is emptied once), so two cars never race for one space and a parked car is never
@@ -144,7 +144,7 @@ public sealed class ParkingFeature : GameFeature
 		var window = __instance;
 		var space = window.currentSelectedSourceSaveIndex;
 		if (space < 0) return true;
-		Ask(PurchaseKind.ParkOut, space.ToString(), status =>
+		Ask(PurchaseKind.ParkOut, ParkOutKey(space), status =>
 		{
 			if (status != TxnStatus.Applied)
 			{
@@ -165,6 +165,22 @@ public sealed class ParkingFeature : GameFeature
 		});
 		__result = Nothing();
 		return false;
+	}
+
+	/// <summary>A hold key that names the car, not just the space: a refilled space can be emptied at once.</summary>
+	private static string ParkOutKey(int space)
+	{
+		try
+		{
+			var spaces = Spaces();
+			if (spaces != null && space >= 0 && space < spaces.Length && spaces[space] != null &&
+			    !string.IsNullOrEmpty(spaces[space].UId)) return space + ":" + spaces[space].UId;
+		}
+		catch (Exception)
+		{
+			// Fall back to the space; the old behaviour.
+		}
+		return space.ToString();
 	}
 
 	private static IEnumerator SendTakenOut(int space)

@@ -1,4 +1,4 @@
-﻿// Based on SceneChangeManager.cs, SceneReturnCarSync.cs, AwayCarBuy.cs, SChangeWhitelist.cs and
+// Based on SceneChangeManager.cs, SceneReturnCarSync.cs, AwayCarBuy.cs, SChangeWhitelist.cs and
 // 66SceneReturnCarSyncPaket.cs from FixForTogether by TogetherFixer
 // (https://github.com/Stevii001100/Fix-For-CMS21-Together), custom non-commercial licence.
 // Modified for Together+: the original keeps the returner's garage private while away, then replaces it with the
@@ -187,9 +187,10 @@ public sealed class SceneReturnFeature : GameFeature
 
 	private void Handover(int txn, ModNewCarData car)
 	{
+		var requiresDebit = ClientData.Instance == null || ClientData.Instance.gamemode != Gamemode.Sandbox;
 		if (IsHost)
 		{
-			queue.Add(ClientData.UserData.playerID, txn, car.UId, car, Time.unscaledTime);
+			queue.Add(ClientData.UserData.playerID, txn, car.UId, car, Time.unscaledTime, requiresDebit);
 			return;
 		}
 		Send(FeatureMessageKind.Event, BuyKey, p =>
@@ -208,7 +209,9 @@ public sealed class SceneReturnFeature : GameFeature
 			var txn = p.ReadInt();
 			var car = p.Read<ModNewCarData>();
 			if (car == null || string.IsNullOrEmpty(car.carToLoad)) return;
-			if (!queue.Add(message.From, txn, car.UId, car, Time.unscaledTime))
+			// The host's own mode decides: a client cannot claim "sandbox" to get a car for free.
+			var requiresDebit = ClientData.Instance == null || ClientData.Instance.gamemode != Gamemode.Sandbox;
+			if (!queue.Add(message.From, txn, car.UId, car, Time.unscaledTime, requiresDebit))
 				Log.Warn($"[SceneReturn] #{message.From}'s car {car.carToLoad} was already handed over; ignored.");
 		}
 		else if (message.Key == ResultKey)

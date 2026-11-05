@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using CMS21Together.ClientSide;
 using CMS21Together.ClientSide.Data;
@@ -7,6 +7,8 @@ using CMS21Together.ClientSide.Data.Player;
 using CMS21Together.ServerSide;
 using CMS21Together.Shared;
 using CMS21Together.Shared.Data;
+using CMS21Together.Shared.Safety;
+using CrashReport = CMS21Together.Shared.Safety.CrashReport;
 using Il2CppSystem.Collections;
 using MelonLoader;
 using Steamworks;
@@ -23,7 +25,7 @@ namespace CMS21Together
 		public const int PORT = 7777;
 		public const string ASSEMBLY_MOD_VERSION = "0.4.16" + ASSEMBLY_HOTFIX_VERSION;
 		public const string ASSEMBLY_HOTFIX_VERSION = "hf3";
-		public const string PLUS_VERSION = "0.5.0-rc14";
+		public const string PLUS_VERSION = "0.5.0-rc15";
 		public const string MOD_VERSION = "Together+ " + PLUS_VERSION + " (Together " + ASSEMBLY_MOD_VERSION + ")";
 		/// <summary>Sent in the handshake; host and clients must match exactly.</summary>
 		public const string NET_VERSION = "TogetherPlus-" + PLUS_VERSION;
@@ -124,6 +126,8 @@ namespace CMS21Together
 			}
 			ClientSide.Features.Features.Initialize(ClientSide.Features.FeatureList.Create());
 			isModInitialized = true;
+			CrashReport.BeginSession();
+			CrashUI.Initialize();
 			LogGcMode();
 			RecordInstalledVersion();
 			Log.Info("Together Mod Initialized!");
@@ -139,6 +143,8 @@ namespace CMS21Together
 			{
 				SavesManager.Initialize();
 				ContentManager.Instance.Initialize();
+				UIActions.ResetLaunch();
+				CrashUI.ShowPreviousSessionNotice();
 
 				ClientData.UserData.scene = SceneManager.UpdateScene(sceneName);
 				Application.runInBackground = false;
@@ -223,6 +229,7 @@ namespace CMS21Together
 			TogetherModManager.SavePreferences();
 			Server.Instance.Stop("The host closed the game.");
 			Client.Instance.Disconnect("Closed the game.", false);
+			CrashReport.EndSession();
 		}
 	}
 }

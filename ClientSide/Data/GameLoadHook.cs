@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using CMS;
 using CMS.Difficulty;
 using CMS.Garage.Customization;
@@ -37,6 +37,7 @@ public static class GameLoadHook
 		if (!Client.Instance.isConnected) return true;
 		
 		Reset();
+		Player.CarEnterExit.Reset();
 		MelonCoroutines.Start(CustomPrepareGame(__instance));
 		return false;
 	}

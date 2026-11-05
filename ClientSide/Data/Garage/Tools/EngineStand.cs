@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -75,11 +75,13 @@ public static class EngineStand
 	{
 		if(!Client.Instance.isConnected || !listen) { listen = true; return true;}
 		
+		// Both stands use this lambda (`useAlt` selects one); the old code only announced stand 2, so the host kept
+		// an engine that had been taken off stand 1 and re-sent it on every resync.
+		ClientSend.TakeOffEnginePacket(useAlt);
 		if (useAlt)
 		{
 			Singleton<GameManager>.Instance.Inventory.AddGroup(GameData.Instance.engineStandLogic2.GetGroupOnEngineStand());
 			GameData.Instance.engineStandLogic2.ClearEngineStand();
-			ClientSend.TakeOffEnginePacket(useAlt);
 			return false;
 		}
 		return true;

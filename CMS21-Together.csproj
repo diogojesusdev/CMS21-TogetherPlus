@@ -212,6 +212,8 @@
         <Compile Include="Shared\CredentialStore.cs" />
         <Compile Include="Shared\AtomicFile.cs" />
         <Compile Include="Shared\PlusPaths.cs" />
+        <Compile Include="Shared\Safety\CrashReport.cs" />
+        <Compile Include="Shared\Safety\Guard.cs" />
     <Compile Include="Shared\PlusSaves.cs" />
     <Compile Include="Shared\Updates\VersionText.cs" />
     <Compile Include="Shared\Updates\UpdateFiles.cs" />
@@ -242,6 +244,7 @@
     <Compile Include="ClientSide\Data\Garage\Car\CarChecks.cs" />
     <Compile Include="ClientSide\Data\Garage\StationGates.cs" />
     <Compile Include="ClientSide\Data\Recovery.cs" />
+    <Compile Include="ClientSide\Data\CrashUI.cs" />
     <Compile Include="ClientSide\Features\FeatureList.cs" />
     <Compile Include="ClientSide\Features\Features.cs" />
     <Compile Include="ClientSide\Features\GameFeature.cs" />

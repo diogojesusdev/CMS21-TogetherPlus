@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using CMS;
@@ -55,6 +55,13 @@ public static class JobManager
 		yield return new WaitForEndOfFrame();
 		
 		var newJob = job.ToGame();
+		// The host re-sends its board after every garage load and a late join replays it: the same order must not be
+		// added twice (a duplicate can never be accepted and inflates the board).
+		if (GameData.Instance.orderGenerator.jobs.ToArray().Any(j => j.id == newJob.id))
+		{
+			Log.Debug($"[JobManager] Order {newJob.id} is already on the board; ignored.");
+			yield break;
+		}
 		newJob.timeToEnd -= 3;
 		GameData.Instance.orderGenerator.jobs.Add(newJob);
 		if (!newJob.IsMission)
@@ -107,8 +114,24 @@ public static class JobManager
 		// XP is per player (plan §3.8): only the player who handed the order over earns it.
 		Singleton<GameManager>.Instance.OrderGenerator.CancelJob(job.id);
 
-		CarSpawnHooks.listenToDelete = false;
-		GameData.Instance.carLoaders[job.carLoaderID].DeleteCar();
+		// The delete is not sent back, and its hook returns before the bookkeeping: forget the car here or the next
+		// job car on this loader is never announced (`CarSpawnManager.LoadJobCar` early-returns).
+		var loader = job.carLoaderID >= 0 && job.carLoaderID < GameData.Instance.carLoaders.Length
+			? GameData.Instance.carLoaders[job.carLoaderID]
+			: null;
+		if (loader != null)
+		{
+			ClientData.Instance.loadedCars.Remove(job.carLoaderID);
+			CarSpawnHooks.listenToDelete = false;
+			try
+			{
+				loader.DeleteCar();
+			}
+			finally
+			{
+				CarSpawnHooks.listenToDelete = true;
+			}
+		}
 		if (job.IsMission)
 		{
 			GlobalData.IsStoryMissionInProgress = false;
