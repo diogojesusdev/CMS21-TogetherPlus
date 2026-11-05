@@ -428,6 +428,7 @@ public static class ClientHandle
 		var id = packet.ReadInt();
 
 		if (!ClientData.Instance.connectedClients.ContainsKey(id)) return;
+		Log.Info($"[Scene] {ClientData.Instance.connectedClients[id].username} (#{id}) is now in {scene}.");
 		ClientData.Instance.connectedClients[id].scene = scene;
 		if (scene != SceneManager.CurrentScene())
 		{

@@ -17,6 +17,7 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 public static class PartUpdateHooks
 {
 	public static bool listen = true;
+	private static readonly LogThrottle Trace = new(20, 5000);
 	
 	[HarmonyPatch(typeof(FluidsData), nameof(FluidsData.SetLevel))]
 	[HarmonyPostfix]
@@ -271,6 +272,9 @@ public static class PartUpdateHooks
 
 		yield return new WaitForEndOfFrame();
 
+		if (Log.IsEnabled(LogLevel.Info) && Trace.Allow(1, out var skipped))
+			Log.Info($"[Local] Sending part {part?.id} ({partType} {key}/{index?.ToString() ?? "-"}) car {carLoaderID}, unmounted={part?.IsUnmounted}{LogThrottle.Skipped(skipped)}");
+
 		if (index.HasValue && partType != ModPartType.engineStand)
 			ClientSend.PartScriptPacket(new ModPartScript(part, key, index.Value, partType), carLoaderID);
 		else if (partType != ModPartType.engineStand)
@@ -287,6 +291,8 @@ public static class PartUpdateHooks
 
 		// Phase 6: if another player wins this panel, the host undoes exactly this item (no duplicate, nothing lost).
 		var linked = frame < 0 ? 0 : Player.Inventory.LinkedItem(frame, off ? InventoryOp.Add : InventoryOp.Remove);
+		if (Log.IsEnabled(LogLevel.Info) && Trace.Allow(2, out var skipped))
+			Log.Info($"[Local] Sending body part #{key} {part?.name} car {carLoaderID}, off={off}, linked item {linked}{LogThrottle.Skipped(skipped)}");
 		ClientSend.BodyPartPacket(new ModCarPart(part, key, carLoaderID), carLoaderID, linked, off);
 	}
 }

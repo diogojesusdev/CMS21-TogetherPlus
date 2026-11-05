@@ -50,6 +50,7 @@ public static class EngineCrane
 		
 		//GameData.Instance.carLoaders[carLoaderID].UseEngineCrane();
 		CarLoader carLoader = GameData.Instance.carLoaders[carLoaderID];
+		Log.Info($"[Apply] Engine crane: taking the engine out of {carLoader.carToLoad} (loader {carLoaderID}).");
 		
 		GameObject engine = carLoader.GetEngine();
 		InteractiveObject iO = engine.GetComponent<InteractiveObject>();
@@ -113,6 +114,7 @@ public static class EngineCrane
 		yield return new WaitForEndOfFrame();
 
 		GroupItem group = engine.ToGame();
+		Log.Info($"[Apply] Engine crane: inserting engine {group.ID}.");
 		
 		CarLoader selectedCarLoader = global::ToolsMoveManager.Get().GetConnectedCarLoader(IOSpecialType.EngineCrane);
 		if (selectedCarLoader == null)

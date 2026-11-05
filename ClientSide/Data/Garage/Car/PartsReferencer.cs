@@ -36,7 +36,7 @@ public static class PartsReferencer
 		yield return new WaitForEndOfFrame();
 		car.isReady = true;
 		car.isFromServer = false;
-		Log.Debug($"[PartsReferencer->GetPartReferences] {car.carID} is ready.");
+		Log.Info($"[Car] {car.carID} (loader {car.carLoaderID}) parts referenced: {car.CarPartInfo.BodyPartsReferences.Count} body, {car.CarPartInfo.EnginePartsReferences.Count} engine, {car.CarPartInfo.OtherPartsReferences.Count} other, {car.CarPartInfo.SuspensionPartsReferences.Count} suspension.");
 	}
 
 	private static IEnumerator GetSuspensionPartCoroutine(ModCar car)

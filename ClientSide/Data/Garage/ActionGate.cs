@@ -84,6 +84,7 @@ public static class ActionGate
 			           !string.IsNullOrEmpty(user.username)
 				? user.username
 				: $"player #{holder}";
+			Log.Info($"[Lock] Action denied: held by {name}.");
 			UIManager.Get()?.ShowPopup("Together+", $"In use by {name}", PopupType.Normal);
 		}
 		catch (Exception ex)

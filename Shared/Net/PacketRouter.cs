@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CMS21Together.Shared.Net;
 
@@ -16,8 +17,31 @@ public sealed class PacketRouter
 	private readonly Dictionary<int, int> errorCounts = new();
 	private readonly Dictionary<int, int> unknownCounts = new();
 	private readonly string name;
+	private readonly LogThrottle trace = new(5, 5000);
+
+	private static readonly string[] Names = Enum.GetNames(typeof(PacketTypes));
+
+	/// <summary>Packets not logged on receipt: per-frame streams (movement, tools in motion, transfers, renewals).</summary>
+	private static readonly bool[] Quiet = BuildQuiet();
+	private static readonly long SlowTicks = Stopwatch.Frequency / 10;
 
 	public PacketRouter(string name) => this.name = name;
+
+	private static bool[] BuildQuiet()
+	{
+		var quiet = new bool[Names.Length];
+		foreach (var type in new[]
+		         {
+			         PacketTypes.position, PacketTypes.rotation, PacketTypes.carPosition, PacketTypes.toolMove,
+			         PacketTypes.engineStandAngle, PacketTypes.carEngineSound, PacketTypes.playerInCar,
+			         PacketTypes.replicaChunk, PacketTypes.replicaAck, PacketTypes.lockRenew, PacketTypes.econBalance,
+			         PacketTypes.invCheck, PacketTypes.carCheck
+		         })
+			quiet[(int)type] = true;
+		return quiet;
+	}
+
+	private static string NameOf(int type) => type >= 0 && type < Names.Length ? Names[type] : type.ToString();
 
 	/// <summary>Raised once per peer when it exceeded <see cref="MaxHandlerErrors"/> (the host kicks it).</summary>
 	public event Action<int, string> PeerMisbehaved;
@@ -45,17 +69,26 @@ public sealed class PacketRouter
 			return false;
 		}
 
+		// Breadcrumb before the handler: the last line before a native crash names the packet being applied.
+		int type = frame.Type;
+		if ((type >= Quiet.Length || !Quiet[type]) && Log.IsEnabled(LogLevel.Info) && trace.Allow(type, out var skipped))
+			Log.Info($"[{name}] <- {NameOf(type)} from #{fromSlot} ({frame.PayloadLength} B){LogThrottle.Skipped(skipped)}");
+
+		var started = Stopwatch.GetTimestamp();
 		try
 		{
 			using var packet = new Packet(frame);
 			handler(fromSlot, packet);
+			var elapsed = Stopwatch.GetTimestamp() - started;
+			if (elapsed > SlowTicks)
+				Log.Warn($"[{name}] Handler for {NameOf(type)} from #{fromSlot} took {elapsed * 1000 / Stopwatch.Frequency} ms.");
 			return true;
 		}
 		catch (Exception ex)
 		{
 			var count = Bump(errorCounts, fromSlot);
 			if (count <= MaxLoggedPerPeer)
-				Log.Error($"[{name}] Handler for packet {frame.Type} from #{fromSlot} failed", ex);
+				Log.Error($"[{name}] Handler for {NameOf(type)} ({type}, {frame.PayloadLength} B) from #{fromSlot} failed", ex);
 			if (count == MaxHandlerErrors)
 				PeerMisbehaved?.Invoke(fromSlot, $"Too many invalid packets ({count}).");
 			return false;
@@ -73,6 +106,7 @@ public sealed class PacketRouter
 	public void Clear()
 	{
 		handlers.Clear();
+		trace.Clear();
 		errorCounts.Clear();
 		unknownCounts.Clear();
 	}

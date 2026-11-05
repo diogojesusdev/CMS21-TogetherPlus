@@ -11,6 +11,16 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 
 public static class PartsUpdater
 {
+	private const int TracePart = 1, TraceBody = 2, TraceMissing = 3;
+	private static readonly LogThrottle Trace = new(20, 5000);
+
+	/// <summary>Breadcrumb before the game applies a remote change (the last line before a native crash).</summary>
+	private static void Breadcrumb(int key, string message)
+	{
+		if (Log.IsEnabled(LogLevel.Info) && Trace.Allow(key, out var skipped))
+			Log.Info(message + LogThrottle.Skipped(skipped));
+	}
+
 	public static IEnumerator UpdatePartScripts(ModPartScript partScript, int carLoaderID)
 	{
 		CarChecks.Touched(carLoaderID);
@@ -27,7 +37,7 @@ public static class PartsUpdater
 				yield return new WaitForSeconds(.15f);
 			yield return new WaitForEndOfFrame();
 			
-			Log.Debug($"[PartsUpdater->UpdatePartScripts]{partScript.id} for es 1");
+			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} (#{partScript.partID}) on engine stand 1, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
 				UpdatePartScript(partScript, ClientData.Instance.engineStand.partReferences[partScript.partID], -1);
 			yield break;
@@ -42,7 +52,7 @@ public static class PartsUpdater
 			}
 			yield return new WaitForEndOfFrame();
 			
-			Log.Debug($"[PartsUpdater->UpdatePartScripts] {partScript.id} for es 2");
+			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} (#{partScript.partID}) on engine stand 2, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
 				UpdatePartScript(partScript, ClientData.Instance.engineStand2.partReferences[partScript.partID], -2);
 			yield break;
@@ -79,10 +89,12 @@ public static class PartsUpdater
 					yield break;
 			}
 
-			Log.Debug("[PartsUpdater->UpdatePartScripts] updating PartScript..");
+			Breadcrumb(TracePart, $"[Apply] Part {partScript.id} ({partScript.type} {key}/{index}) on car {carLoaderID} {car.carID}, unmounted={partScript.unmounted}.");
 			using (ActionGate.Apply())
 				UpdatePartScript(partScript, reference, carLoaderID);
 		}
+		else
+			Breadcrumb(TraceMissing, $"[Apply] Part {partScript.id} dropped: car {carLoaderID} is not loaded here.");
 	}
 
 	private static void UpdatePartScript(ModPartScript part, PartScript reference, int carLoaderID)
@@ -123,6 +135,7 @@ public static class PartsUpdater
 
 			if (reference.IsUnmounted)
 			{
+				if (Log.IsEnabled(LogLevel.Debug)) Log.Debug($"[Apply] Showing {part.id} (car {carLoaderID}).");
 				reference.ShowBySaveGame();
 
 				reference.Show();
@@ -150,6 +163,7 @@ public static class PartsUpdater
 		{
 			if (reference.IsUnmounted == false)
 			{
+				if (Log.IsEnabled(LogLevel.Debug)) Log.Debug($"[Apply] Hiding {part.id} (car {carLoaderID}).");
 				if (carLoaderID != -1 && carLoaderID != -2)
 					reference.HideBySavegame(false, GameData.Instance.carLoaders[carLoaderID]);
 				else
@@ -181,10 +195,12 @@ public static class PartsUpdater
 			var key = carPart.carPartID;
 
 			var reference = car.CarPartInfo.BodyPartsReferences[key];
-			Log.Debug("[PartsUpdater->UpdateBodyParts] Updating BodyPart..");
+			Breadcrumb(TraceBody, $"[Apply] Body part #{key} on car {carLoaderID} {car.carID}, unmounted={carPart.unmounted}, switched={carPart.switched}.");
 			using (ActionGate.Apply())
 				UpdateBodyPart(carPart, reference, carLoaderID);
 		}
+		else
+			Breadcrumb(TraceMissing, $"[Apply] Body part #{carPart.carPartID} dropped: car {carLoaderID} is not loaded here.");
 	}
 
 	private static void UpdateBodyPart(ModCarPart carPart, CarPart reference, int carLoaderID)
@@ -225,13 +241,22 @@ public static class PartsUpdater
 		}
 
 		if (!reference.Unmounted && carPart.unmounted)
+		{
+			Breadcrumb(TraceBody, $"[Apply] Taking off {reference.name} (car {carLoaderID}).");
 			GameData.Instance.carLoaders[carLoaderID].TakeOffCarPartFromSave(reference.name);
+		}
 
 		if (reference.Unmounted && !carPart.unmounted)
+		{
+			Breadcrumb(TraceBody, $"[Apply] Putting on {reference.name} (car {carLoaderID}).");
 			GameData.Instance.carLoaders[carLoaderID].TakeOnCarPartFromSave(reference.name);
+		}
 
 		if (reference.Switched != carPart.switched)
+		{
+			Breadcrumb(TraceBody, $"[Apply] Switching {reference.name} to {carPart.switched} (car {carLoaderID}).");
 			GameData.Instance.carLoaders[carLoaderID].SwitchCarPart(reference, false, carPart.switched);
+		}
 
 		foreach (var _carPart in carPart.connectedParts)
 		{

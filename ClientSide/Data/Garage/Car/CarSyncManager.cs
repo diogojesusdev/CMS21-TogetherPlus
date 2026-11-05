@@ -17,7 +17,7 @@ public static class CarSyncManager
 		{
 			if (placeNo != car.carPosition)
 			{
-				Log.Debug($"Change {car.carID} position to {placeNo}.");
+				Log.Info($"[Car] Moving {car.carID} (loader {carLoaderID}) to place {placeNo}.");
 				car.carPosition = placeNo;
 				CarSyncHooks.listenToChangePosition = false;
 				GameData.Instance.carLoaders[carLoaderID].ChangePosition(placeNo);
@@ -31,6 +31,8 @@ public static class CarSyncManager
 			yield return new WaitForSeconds(0.25f);
 		yield return new WaitForEndOfFrame();
 
+		ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var car);
+		Log.Info($"[Car] Deleting {car?.carID ?? "an untracked car"} on loader {carLoaderID} (host's order).");
 		if (ClientData.Instance.loadedCars.ContainsKey(carLoaderID))
 			ClientData.Instance.loadedCars.Remove(carLoaderID);
 		CarSpawnHooks.listenToDelete = false;

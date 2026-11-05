@@ -187,6 +187,7 @@
         <Compile Include="Shared\SavesManager.cs" />
         <Compile Include="Shared\TogetherModManager.cs" />
         <Compile Include="Shared\Log.cs" />
+        <Compile Include="Shared\LogThrottle.cs" />
         <Compile Include="Shared\Net\Chunking.cs" />
         <Compile Include="Shared\Net\Frame.cs" />
         <Compile Include="Shared\Net\Handshake.cs" />

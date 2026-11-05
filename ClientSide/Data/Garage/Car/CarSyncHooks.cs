@@ -38,7 +38,7 @@ public static class CarSyncHooks
 		}
 
 		var carLoaderID = CarLoaderRegistry.IdOf(__instance);
-		Log.Debug($"Move {__instance.carToLoad} to {no}.");
+		Log.Info($"[Car] Local move of {__instance.carToLoad} (loader {carLoaderID}) to place {no}.");
 		if (! ClientData.Instance.loadedCars.ContainsKey(carLoaderID))
 			return true;
 		if (no == -1)

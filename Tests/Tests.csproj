@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\Log.cs" Link="Linked\Log.cs" />
+    <Compile Include="..\Shared\LogThrottle.cs" Link="Linked\LogThrottle.cs" />
     <Compile Include="..\Shared\Packet.cs" Link="Linked\Packet.cs" />
     <Compile Include="..\Shared\PacketTypes.cs" Link="Linked\PacketTypes.cs" />
     <Compile Include="..\Shared\SteamworksUtils.cs" Link="Linked\SteamworksUtils.cs" />

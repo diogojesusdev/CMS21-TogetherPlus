@@ -201,6 +201,7 @@ public static class EngineStand
 		}
 		
 		listen = false;
+		Log.Info($"[Apply] Engine stand {(alt ? 2 : 1)}: putting engine {engineGroup?.ID} on it.");
 		MainMod.StartCoroutine(stand.reference.SetGroupOnEngineStand(engineGroup.ToGame(), false));
 		
 		int counter = 0;
@@ -229,6 +230,7 @@ public static class EngineStand
 		else
 			stand = ClientData.Instance.engineStand;
 		
+		Log.Info($"[Apply] Engine stand {(alt ? 2 : 1)}: clearing it.");
 		stand.reference.ClearEngineStand();
 		SoundManager.Get().PlaySFX("PartTakeOff");
 	}

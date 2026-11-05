@@ -20,6 +20,7 @@ public static class CarSpawnManager
 		if (ClientData.Instance.loadedCars.ContainsKey(carLoaderID)) yield break;
 
 		var car = new ModCar(carLoaderID, carData.carToLoad, carData.configVersion, placeNo, carData.customerCar);
+		Log.Info($"[Car] Local load of {carData.carToLoad} on loader {carLoaderID} (place {placeNo}), sending it.");
 		ClientSend.LoadCarPacket(new ModNewCarData(carData, placeNo), carLoaderID);
 		
 		while (!GameData.Instance.carLoaders[carLoaderID].IsCarLoaded()) yield return YieldInstructions.WaitForEndOfFrame;
@@ -49,6 +50,7 @@ public static class CarSpawnManager
 		yield return YieldInstructions.WaitForEndOfFrame;
 		
 		var car = new ModCar(carLoaderID, name, carLoader.ConfigVersion, carLoader.placeNo, carLoader.customerCar);
+		Log.Info($"[Car] Job car {name} loaded on loader {carLoaderID} (customer={carLoader.customerCar}).");
 		
 		if (carLoader.customerCar)
 			ClientSend.LoadJobCarPacket(car);
@@ -93,6 +95,7 @@ public static class CarSpawnManager
 				yield break;
 			}
 
+			Log.Info($"[Car] Job car {name} (loader {carLoaderID}) sent to the other players.");
 			ClientSend.LoadCarPacket(modCarData, carLoaderID);
 		}
 	}
@@ -106,8 +109,12 @@ public static class CarSpawnManager
 
 		// The same car again (a resync while it was already being loaded): its parts follow, no second load.
 		if (ClientData.Instance.loadedCars.TryGetValue(carLoaderID, out var existing) && existing != null && existing.carID == data.carToLoad)
+		{
+			Log.Info($"[Car] {data.carToLoad} already on loader {carLoaderID}, not loading it again.");
 			yield break;
+		}
 
+		Log.Info($"[Car] Loading {data.carToLoad} from the host on loader {carLoaderID} (place {data.carPosition}, job {data.jobID}, replacing {existing?.carID ?? "nothing"}).");
 		var carLoader = GameData.Instance.carLoaders[carLoaderID];
 		carLoader.placeNo = data.carPosition;
 		carLoader.ConfigVersion = data.configVersion;

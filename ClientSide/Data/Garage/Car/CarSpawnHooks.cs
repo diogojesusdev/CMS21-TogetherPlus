@@ -67,7 +67,7 @@ public static class CarSpawnHooks
 		if (!SceneManager.IsInGarage()) return;
 		if (QolParking.IsExtraPlace(__instance.placeNo)) return;
 
-		//Log.Info($"[CarSpawnHooks->LoadJobCar] Triggered:{name}");
+		Log.Info($"[Car] Local job car load of {name} on loader {CarLoaderRegistry.IdOf(__instance)} (place {__instance.placeNo}).");
 
 		var carLoaderID = CarLoaderRegistry.IdOf(__instance);
 		MelonCoroutines.Start(CarSpawnManager.LoadJobCar(name, carLoaderID, __instance));
@@ -98,7 +98,7 @@ public static class CarSpawnHooks
 		{
 			if (!car.needResync)
 			{
-				Log.Debug("Sent Delete car packet.");
+				Log.Info($"[Car] Local delete of {car.carID} on loader {carLoaderID}, sending it.");
 				ClientSend.DeleteCarPacket(carLoaderID);
 				ClientData.Instance.loadedCars.Remove(carLoaderID);
 			}
