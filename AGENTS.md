@@ -61,6 +61,10 @@ itself. Every push that publishes a release must therefore keep these rules:
 - **When:** the check is at **launch**, not inside a running session, and the game restarts on the new version in
   the same launch. A version that fails to start is rolled back on the next launch and not retried automatically.
 - Hosts and clients must both run the new version; the handshake refuses mixed versions.
+- **The mismatch wording is part of the auto-update contract.** `NetHost` rejects with
+  `Mod version mismatch: host has TogetherPlus-<version>, ...`; `VersionText.HostVersionIn` extracts that version and
+  the client writes an update request for exactly that tag. Keep the wording, the parser and `VersionTextTests` in
+  sync — changing one without the others silently disables host-version matching.
 
 The full command is:
 

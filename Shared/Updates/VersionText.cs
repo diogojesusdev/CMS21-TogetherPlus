@@ -14,7 +14,7 @@ public static class VersionText
 	private static readonly Regex TagPattern = new(@"^\s*[vV]?(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.\-]*)?)\s*$",
 		RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-	private static readonly Regex HostPattern = new(@"host has\s+(?:Together\+\s+)?(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.\-]*)?)",
+	private static readonly Regex HostPattern = new(@"host has\s+(?:Together(?:\+|Plus)?[\s-]+)?(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.\-]*)?)",
 		RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
 	/// <summary>The version inside a release tag ("v0.5.0-rc12" -> "0.5.0-rc12"), or null.</summary>
@@ -30,7 +30,11 @@ public static class VersionText
 		return true;
 	}
 
-	/// <summary>The host's version out of a handshake rejection, or null when the reason is not a version mismatch.</summary>
+	/// <summary>
+	/// The host's version out of a handshake rejection, or null when the reason is not a version mismatch. The host
+	/// sends <c>Mod version mismatch: host has TogetherPlus-0.5.0-rc16, you have ...</c>; the old wording
+	/// (<c>Together+ 0.5.0-rc16</c>) and a bare version are accepted too.
+	/// </summary>
 	public static string HostVersionIn(string reason)
 	{
 		if (string.IsNullOrEmpty(reason)) return null;

@@ -44,12 +44,13 @@ public class VersionTextTests
 			Assert.IsTrue(VersionText.AreEqual("v0.5.0-rc11", "0.5.0-rc11"));
 		});
 
-	[Test]
-	public void FindsTheHostVersionInARejection()
-	{
-		const string reason = "Mod version mismatch: host has Together+ 0.5.0-rc12 (Together 0.4.16hf3), you have Together+ 0.5.0-rc11 (Together 0.4.16hf3).";
-		Assert.AreEqual("0.5.0-rc12", VersionText.HostVersionIn(reason));
-	}
+	[TestCase("Mod version mismatch: host has TogetherPlus-0.6.0, you have TogetherPlus-0.5.0-rc16.", "0.6.0")]
+	[TestCase("Mod version mismatch: host has TogetherPlus-0.5.0-rc12, you have TogetherPlus-0.5.0-rc11.", "0.5.0-rc12")]
+	[TestCase("Mod version mismatch: host has TogetherPlus 0.6.1, you have TogetherPlus 0.6.0.", "0.6.1")]
+	[TestCase("Mod version mismatch: host has Together+ 0.5.0-rc12 (Together 0.4.16hf3), you have Together+ 0.5.0-rc11 (Together 0.4.16hf3).", "0.5.0-rc12")]
+	[TestCase("host has 0.7.1", "0.7.1")]
+	public void FindsTheHostVersionInARejection(string reason, string expected) =>
+		Assert.AreEqual(expected, VersionText.HostVersionIn(reason));
 
 	[TestCase(null)]
 	[TestCase("Server is full (8 players).")]
