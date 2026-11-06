@@ -72,6 +72,34 @@ function Get-Download([string]$url, [string]$file) {
     Invoke-WebRequest -UseBasicParsing -Headers @{ 'User-Agent' = 'TogetherPlus-installer' } -Uri $url -OutFile $file
 }
 
+# Sortable key for a release tag, so releases can be compared by version instead of trusting the order the API
+# returns (it hands back rc9 before rc33, which is how the installer used to install a 25-release-old build).
+# 'v0.5.0-rc33' -> '000000.000005.000000.0.000033'. A final release outranks its own prereleases; anything that is
+# not a version ('Release-0_4_17', the 0.4.x tags) yields $null and is ignored.
+function Get-VersionKey([string]$tag) {
+    $match = [regex]::Match($tag, '^v?(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<pre>[A-Za-z]+)\.?(?<preNum>\d+)?)?$')
+    if (-not $match.Success) { return $null }
+    $preNum = if ($match.Groups['preNum'].Success) { [int]$match.Groups['preNum'].Value } else { 0 }
+    $final = if ($match.Groups['pre'].Success) { 0 } else { 1 }
+    return '{0:D6}.{1:D6}.{2:D6}.{3}.{4:D6}' -f [int]$match.Groups['major'].Value,
+        [int]$match.Groups['minor'].Value, [int]$match.Groups['patch'].Value, $final, $preNum
+}
+
+# The newest release that carries a mod package. Drawn out of the main body so it can be tested: the API returns
+# releases in no reliable order (rc9 arrives before rc33), so the pick is made by version and never by position.
+# When no tag parses as a version the API order is still better than nothing, so it is used as a fallback.
+function Get-NewestRelease($releases) {
+    $candidates = foreach ($release in $releases) {
+        if (-not $release -or $release.draft) { continue }
+        $zip = $release.assets | Where-Object { $_.name -like 'TogetherPlus-*.zip' } | Select-Object -First 1
+        if (-not $zip) { continue }
+        [pscustomobject]@{ Tag = $release.tag_name; Key = (Get-VersionKey $release.tag_name); Asset = $zip }
+    }
+    $newest = $candidates | Where-Object { $_.Key } | Sort-Object Key -Descending | Select-Object -First 1
+    if (-not $newest) { $newest = $candidates | Select-Object -First 1 }
+    return $newest
+}
+
 $work = Join-Path ([IO.Path]::GetTempPath()) ('TogetherPlus-install-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force $work | Out-Null
 try {
@@ -127,14 +155,12 @@ try {
     }
     if (-not $package -and -not $Zip) {
         Say 'Downloading the newest Together+ release...'
-        $releases = Invoke-RestMethod -Headers @{ 'User-Agent' = 'TogetherPlus-installer' } -Uri "https://api.github.com/repos/$Repo/releases?per_page=10"
-        $asset = $null
-        foreach ($release in $releases) {
-            if ($release.draft) { continue }
-            $asset = $release.assets | Where-Object { $_.name -like 'TogetherPlus-*.zip' } | Select-Object -First 1
-            if ($asset) { Say "Release: $($release.tag_name)"; break }
-        }
-        if (-not $asset) { Fail "No Together+ release was found on github.com/$Repo." }
+        # Never take the first entry: the API does not sort releases by version, so the newest one has to be picked.
+        $releases = Invoke-RestMethod -Headers @{ 'User-Agent' = 'TogetherPlus-installer' } -Uri "https://api.github.com/repos/$Repo/releases?per_page=100"
+        $newest = Get-NewestRelease $releases
+        if (-not $newest) { Fail "No Together+ release was found on github.com/$Repo." }
+        Say "Release: $($newest.Tag)"
+        $asset = $newest.Asset
         $Zip = Join-Path $work $asset.name
         Get-Download $asset.browser_download_url $Zip
     }
