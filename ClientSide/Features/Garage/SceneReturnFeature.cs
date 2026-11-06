@@ -112,6 +112,9 @@ public sealed class SceneReturnFeature : GameFeature
 
 	private static void Before()
 	{
+		// The game's own save runs again while the garage is being torn down: walking its data then builds wrappers
+		// out of objects that are already being destroyed (a GC handle to freed memory is the menu-return crash).
+		if (Shutdown.Leaving) return;
 		if (depth++ > 0) return;
 		garageRefs = parkingRefs = null;
 		try

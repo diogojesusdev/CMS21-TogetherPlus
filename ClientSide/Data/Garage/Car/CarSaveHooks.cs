@@ -53,6 +53,7 @@ public static class CarSaveHooks
 
 	private static void Record(NewCarData carData, int index)
 	{
+		if (Shutdown.Leaving) return;
 		if (carData == null || index < 0) return;
 		if (!Client.Instance.isConnected) return;
 

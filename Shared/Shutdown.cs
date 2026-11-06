@@ -1,5 +1,8 @@
 using System;
+using CMS;
 using CMS21Together.ClientSide;
+using CMS21Together.Shared.Data.Vanilla.Cars;
+using UnhollowerBaseLib;
 using CMS21Together.ClientSide.Data;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.Shared.Safety;
@@ -59,6 +62,7 @@ public static class Shutdown
 		Guard.Run("release the player objects the mod tracked", ReleasePlayers);
 		Guard.Run("release the garage objects the mod tracked", ReleaseGarage);
 		Guard.Run("drop the saved-car captures", CarSaveHooks.Reset);
+		Guard.Run("check the profile cars", CheckProfileCars);
 		Guard.Run("let go of the freed game objects", Collect);
 		Guard.Run("release the assets the mod no longer uses", () => Resources.UnloadUnusedAssets());
 		Log.Info("[Shutdown] Released the mod's references to the garage, including the avatar template.");
@@ -103,10 +107,34 @@ public static class Shutdown
 	}
 
 	/// <summary>
-	/// Unhollower frees an object's il2cpp GC handle in the wrapper's finaliser, so dropping the references is not
-	/// enough on its own: the handles have to actually go before Unity unloads the scene. A scene change already
-	/// stalls for seconds, so one collection here costs nothing noticeable.
+	/// Names a profile car slot whose reference fields hold something that is not an object, *before* the collection
+	/// here and Unity's later unload walk that memory. The menu-return crash is a reference field carrying a float or
+	/// a truncated pointer; this check turns it into the slot and field that carry it, because
+	/// <see cref="CarDataReader.TryRead"/> validates exactly the fields the collector dereferences.
 	/// </summary>
+	private static void CheckProfileCars()
+	{
+		var profile = Singleton<GameManager>.Instance?.GameDataManager?.CurrentProfileData;
+		if (profile == null) return;
+		ReportCars(profile.carsInGarage, "carsInGarage");
+		ReportCars(profile.carsOnParking, "carsOnParking");
+	}
+
+	private static void ReportCars(Il2CppReferenceArray<NewCarData> cars, string name)
+	{
+		if (cars == null) return;
+
+		var bad = 0;
+		for (var i = 0; i < cars.Length; i++)
+		{
+			if (CarDataReader.TryRead(cars, i, out _, out var problem) || problem == null) continue;
+			bad++;
+			Log.Warn($"[Shutdown] {name}[{i}] is not a readable car: {problem}");
+		}
+
+		if (bad == 0) Log.Info($"[Shutdown] {name}: {cars.Length} slot(s), every car passed the reference checks.");
+	}
+
 	private static void Collect()
 	{
 		GC.Collect();

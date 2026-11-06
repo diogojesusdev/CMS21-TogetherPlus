@@ -86,6 +86,7 @@ public static class CarSpawnHooks
 	{
 		// A gate (StationGates) cancelled the action: nothing happened, nothing to send.
 		if (!__runOriginal) return;
+		if (Shutdown.Leaving) return;
 		if (MainMod.isClosing || Client.Instance == null) return;
 		if (!Client.Instance.isConnected || !listenToDelete)
 		{
