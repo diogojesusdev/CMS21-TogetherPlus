@@ -157,6 +157,21 @@ public static class JobHooks
 		return false;
 	}
 
+	private static readonly System.Collections.Generic.Dictionary<string, string> PartNames = new System.Collections.Generic.Dictionary<string, string>
+	{
+		{ "rolka_gladka", "Smooth idler pulley (belt roller, engine bay)" },
+	};
+
+	// The game shows the raw internal id when a part has no translation; make it readable.
+	private static string FriendlyPartName(string id)
+	{
+		if (string.IsNullOrEmpty(id)) return "a part";
+		if (PartNames.TryGetValue(id, out var known)) return known;
+		var localized = Singleton<GameManager>.Instance.Localization.GetLocalizedValue(id);
+		if (!string.IsNullOrEmpty(localized) && localized != id) return localized;
+		return id.Replace('_', ' ') + " (internal part id)";
+	}
+
 	[HarmonyPatch(typeof(GameScript), nameof(GameScript.EndJob))]
 	[HarmonyPrefix]
 	public static bool EndJobHook(Job job, CarLoader carLoader)
@@ -165,7 +180,9 @@ public static class JobHooks
 
 		if (!carLoader.CheckCarPartsBolts())
 		{
-			UIManager.Get().ShowInfoWindow("GUI_SamochodNiezlozony", ("!" + Singleton<GameManager>.Instance.Localization.GetLocalizedValue(carLoader.GetMissingPartID())));
+			var missingId = carLoader.GetMissingPartID();
+			Log.Info($"[Hook->EndJobHook] Car incomplete, missing part id '{missingId}'");
+			UIManager.Get().ShowInfoWindow("GUI_SamochodNiezlozony", FriendlyPartName(missingId));
 			return false;
 		}
 
