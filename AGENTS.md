@@ -131,6 +131,14 @@ gh release create v<PLUS_VERSION> --repo diogojesusdev/CMS21-TogetherPlus --targ
   - Use `Shared/Il2CppArrays.Set(...)` / `Il2CppArrays.Of(...)`.
   - Without the barrier, the game's incremental GC frees live objects and the game crashes later in `Component.get_gameObject`.
 - **Some game types are value types stored inline in arrays**: `NewCarData`, `CustomColor`, `SaveData`. `Il2CppArrays` handles them; don't hand-roll pointer writes.
+- **Never Harmony-patch a game method that takes, returns or belongs to a game value type** (a class deriving from
+  `Il2CppSystem.ValueType`: `NewCarData`, `FluidsData`, `CustomColor`, ...). MelonLoader 0.5.7's shim hands the
+  original a struct shifted by 16 bytes, even for an empty prefix: the game then stores garbage (the job car that was
+  never sent, the menu-return GC crash of rc28-rc34). Patch a caller with plain parameters instead (e.g.
+  `CarLoader.SaveCarToFile(int, bool)` rather than `GameDataManager.SaveCar*`). `HarmonyTargetTests` fails the build for
+  an attribute patch, `GameFeature` refuses such a target, and the startup log reports one as `[Patches]`.
+- **After the mod writes a car into the profile, call `CarSlotAudit.Slot`/`Profile`.** It checks every reference field
+  the GC will walk and names the writer in a `[CarAudit]` error, instead of the game crashing minutes later.
 - **Game `List<T>` can have `_items == null`.** `ToArray()` then throws `ArgumentNullException`. Check `_items` first (see `ModNewCarData.CopyList`).
 - **Stored references to game objects can go stale.**
   - Compare by `Pointer` (`PartUpdateHooks.Same`), not the game's `==`.

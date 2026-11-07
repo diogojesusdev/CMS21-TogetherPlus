@@ -65,7 +65,6 @@
         <Compile Include="ClientSide\Data\Garage\Campaign\SkillUpgradeHook.cs" />
         <Compile Include="ClientSide\Data\Garage\Car\CarSpawnManager.cs"/>
         <Compile Include="ClientSide\Data\Garage\Car\CarSpawnHooks.cs"/>
-        <Compile Include="ClientSide\Data\Garage\Car\CarSaveHooks.cs"/>
         <Compile Include="ClientSide\Data\Garage\ActionGate.cs"/>
         <Compile Include="ClientSide\Data\Garage\LockGates.cs"/>
         <Compile Include="ClientSide\Data\Garage\Car\CarSyncHooks.cs"/>
@@ -131,6 +130,7 @@
         <Compile Include="Shared\Data\UICustomPanelType.cs" />
         <Compile Include="Shared\Data\UserData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarDataReader.cs" />
+    <Compile Include="Shared\Data\Vanilla\Cars\CarSlotAudit.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarFieldLayout.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarPayloadRules.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBodyPartData.cs" />
@@ -221,6 +221,9 @@
         <Compile Include="Shared\PlusPaths.cs" />
         <Compile Include="Shared\Safety\CrashReport.cs" />
         <Compile Include="Shared\Safety\Guard.cs" />
+        <Compile Include="Shared\Safety\HeapCheck.cs" />
+        <Compile Include="Shared\Safety\PatchRules.cs" />
+        <Compile Include="Shared\Safety\PatchSafety.cs" />
     <Compile Include="Shared\PlusSaves.cs" />
     <Compile Include="Shared\Updates\VersionText.cs" />
     <Compile Include="Shared\Updates\ReleaseCatalog.cs" />

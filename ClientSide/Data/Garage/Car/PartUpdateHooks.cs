@@ -17,10 +17,10 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 public static class PartUpdateHooks
 {
 	/// <summary>
-	/// Frame of the change being applied from the host, or -1. Both fluid postfixes are patched on call paths the game
-	/// nests (`SetLevelAndCondition` reaches `FluidsData.SetLevel` and `FluidData.SetLevel`), so a one-shot flag was
-	/// consumed by the first hook and the second re-sent the applied value (the report's FL-4). A window that lasts
-	/// the whole frame silences every hook of one apply, and cannot be left consumed by a throw.
+	/// Frame of the change being applied from the host, or -1. The game nests its fluid calls
+	/// (`SetLevelAndCondition` -> `FluidsData.SetLevel` -> `FluidData.SetLevel`), so a one-shot flag could be consumed
+	/// by the first call and a later one re-sent the applied value (the report's FL-4). A window that lasts the whole
+	/// frame silences every hook of one apply, and cannot be left consumed by a throw.
 	/// </summary>
 	private static int suppressFrame = -1;
 
@@ -30,21 +30,29 @@ public static class PartUpdateHooks
 	private static bool Suppressed => Time.frameCount <= suppressFrame;
 
 	private static readonly LogThrottle Trace = new(20, 5000);
-	
-	[HarmonyPatch(typeof(FluidsData), nameof(FluidsData.SetLevel))]
+
+	// FluidsData.SetLevel is not patched: FluidsData is a game value type, and MelonLoader 0.5.7 runs a patched method
+	// of one on memory 16 bytes past the real struct (see PatchRules). For the brake, coolant, steering and washer
+	// lists it forwards to FluidData.SetLevel (the hook below); engine oil is written straight into Oil.Level, so it
+	// is sent when the refill ends (OilRefillDoneHook).
+
+	/// <summary>
+	/// Engine oil poured with the refill can: its level is sent once the pour ends (the refill logic is disabled),
+	/// not on every frame of it. Draining is replayed through the oil bin hook.
+	/// </summary>
+	[HarmonyPatch(typeof(FluidRefillLogic), "OnDisable")]
 	[HarmonyPostfix]
-	public static void SetLevelAltHook(float level, CarFluidType carFluidType, int id, FluidsData __instance)
+	public static void OilRefillDoneHook(FluidRefillLogic __instance)
 	{
-		if (!Client.Instance.isConnected || Suppressed) return;
-		// Cars of the junkyard, auto salon or barn are not garage cars (their loader ids would hit garage cars).
-		if (SceneManager.CurrentScene() != GameScene.garage) return;
+		if (Shutdown.Leaving || Client.Instance == null || !Client.Instance.isConnected || Suppressed) return;
+		if (SceneManager.CurrentScene() != GameScene.garage || !GameLoadHook.IsGameReady()) return;
+		if (__instance == null || __instance.CurrentFluid != CarFluidType.EngineOil) return;
 
-		if (carFluidType == CarFluidType.EngineOil && __instance.Oil.CarFluid != null)
-		{
-			int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.Oil.CarFluid);
-			ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance.Oil));
-		}
-
+		var carLoader = __instance.carLoader;
+		if (carLoader == null || !carLoader.IsCarLoaded()) return;
+		var oil = carLoader.FluidsData?.Oil;
+		if (oil == null) return;
+		ClientSend.CarFluid(CarLoaderRegistry.IdOf(carLoader), new ModFluidData(oil));
 	}
 	
 	[HarmonyPatch(typeof(FluidData), nameof(FluidData.SetLevel))]

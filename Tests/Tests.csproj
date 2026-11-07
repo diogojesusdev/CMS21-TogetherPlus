@@ -15,6 +15,7 @@
     <PackageReference Include="NUnit" Version="3.14.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,6 +37,7 @@
     <Compile Include="..\Shared\PlusPaths.cs" Link="Linked\PlusPaths.cs" />
     <Compile Include="..\Shared\Safety\CrashReport.cs" Link="Linked\CrashReport.cs" />
     <Compile Include="..\Shared\Safety\Guard.cs" Link="Linked\Guard.cs" />
+    <Compile Include="..\Shared\Safety\PatchRules.cs" Link="Linked\PatchRules.cs" />
     <Compile Include="..\Shared\Updates\**\*.cs" LinkBase="Linked\Updates" />
     <Compile Include="..\Shared\Net\**\*.cs" LinkBase="Linked\Net" />
     <Compile Include="..\Shared\Locks\**\*.cs" LinkBase="Linked\Locks" />

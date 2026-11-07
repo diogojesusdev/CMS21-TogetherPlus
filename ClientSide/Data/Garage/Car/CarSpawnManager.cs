@@ -103,26 +103,26 @@ public static class CarSpawnManager
 				yield return new WaitForSeconds(0.25f);
 			yield return new WaitForEndOfFrame();
 
-			// The game writes the car into the profile asynchronously, so carsInGarage does not hold it right after
-			// the loader says the car is loaded. Two things are watched: the save the game itself performs (caught by
-			// CarSaveHooks, which is exact) and the garage array (a fallback). Every iteration checks that the garage
-			// is still there - this coroutine used to keep calling into the game while the player was already on the
-			// way to the menu, which is a crash during the scene teardown.
+			// SaveCarToFile builds the car and stores it in carsInGarage[index] before it returns (disassembled:
+			// SaveCarToFile -> GameDataManager.SaveCar -> SaveCarInGarage, all synchronous), so the slot is read right
+			// after it. The car "never turned up" in rc12-rc34 because the mod patched SaveCar*, and MelonLoader hands
+			// a patched method taking a NewCarData a struct shifted by 16 bytes: the game stored a car with an empty
+			// name and garbage references (see PatchRules). The loop only retries a car that is not readable yet.
+			// Every iteration checks that the garage is still there: this coroutine used to keep calling into the
+			// game while the player was already on the way to the menu, which is a crash during the scene teardown.
 			var preferredIndex = Helper.GetIndexFromCarLoaderName(carLoader.name);
 			ModNewCarData modCarData = null;
 			var lastSlots = "(not read)";
 			var sinceSave = float.MaxValue;
 			var warned = false;
 
-			for (var waited = 0f; modCarData == null && waited < SendWindowSeconds; waited += PollSeconds)
+			for (var waited = 0f; waited < SendWindowSeconds; waited += PollSeconds)
 			{
 				if (!StillInThisGarage(carLoader, carLoaderID)) yield break;
 
-				// Ask the game to write the car out again if the last request has had time to finish. The explicit
-				// overload names the garage slot: the no-argument one left carsInGarage empty for the whole window
-				// on a job car, so the car could never be found (the "never turned up" reports).
 				if (sinceSave >= ResaveSeconds)
 				{
+					// The explicit overload names the garage slot the loader belongs to.
 					Guard.Run("save the job car into the profile", () =>
 					{
 						if (preferredIndex >= 0) carLoader.SaveCarToFile(preferredIndex, false);
@@ -131,22 +131,8 @@ public static class CarSpawnManager
 					sinceSave = 0f;
 				}
 
-				yield return new WaitForSeconds(PollSeconds);
-				sinceSave += PollSeconds;
-				if (!StillInThisGarage(carLoader, carLoaderID)) yield break;
-
-				// What the game actually wrote, caught as it wrote it. This is the path that works for a job car.
-				modCarData = CarSaveHooks.Take(preferredIndex, name);
-				if (modCarData != null)
-				{
-					modCarData.carPosition = carLoader.placeNo;
-					modCarData.jobID = carLoader.orderConnection;
-					Log.Info($"[Car] {name} (loader {carLoaderID}) was caught as the game saved it into garage slot {preferredIndex}.");
-					break;
-				}
-
-				// Fallback: read it through CarDataReader, never through the raw array (the array class caches its
-				// element stride in a static constructor that can run before NewCarData's).
+				// Read through CarDataReader, never through the raw array (the array class caches its element stride in
+				// a static constructor that can run before NewCarData's).
 				var cars = GameManager.Instance.GameDataManager.CurrentProfileData?.carsInGarage;
 				if (cars == null)
 				{
@@ -155,7 +141,26 @@ public static class CarSpawnManager
 				}
 
 				var index = CarDataReader.FindSlot(cars, name, preferredIndex);
-				if (index < 0)
+				if (index >= 0)
+				{
+					if (index != preferredIndex)
+						Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
+
+					try
+					{
+						if (CarDataReader.TryRead(cars, index, out var carData, out var problem))
+							modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
+						else if (problem != null)
+							Log.Warn($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not readable yet: {problem}");
+					}
+					catch (Exception ex)
+					{
+						Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}, slot {index}) failed: {ex.Message}");
+					}
+
+					if (modCarData != null) break;
+				}
+				else
 				{
 					lastSlots = CarDataReader.Describe(cars);
 					if (!warned && waited >= 2f)
@@ -163,23 +168,10 @@ public static class CarSpawnManager
 						warned = true; // one breadcrumb, not one per poll
 						Log.Info($"[Car] {name} (loader {carLoaderID}) is not in the garage array yet after {waited:0.0}s; still waiting. The slots hold: {lastSlots}");
 					}
-					continue;
 				}
 
-				if (index != preferredIndex)
-					Log.Info($"[Car] {name} is in garage slot {index} (the loader-name lookup said {preferredIndex}).");
-
-				try
-				{
-					if (CarDataReader.TryRead(cars, index, out var carData, out var problem))
-						modCarData = new ModNewCarData(carData, carLoader.placeNo, carLoader.orderConnection);
-					else if (problem != null)
-						Log.Warn($"[CarSpawnManager->LoadJobCar] {name} (loader {carLoaderID}, slot {index}) is not readable yet: {problem}");
-				}
-				catch (Exception ex)
-				{
-					Log.Warn($"[CarSpawnManager->LoadJobCar] Reading {name} (loader {carLoaderID}, slot {index}) failed: {ex.Message}");
-				}
+				yield return new WaitForSeconds(PollSeconds);
+				sinceSave += PollSeconds;
 			}
 
 			if (modCarData == null)

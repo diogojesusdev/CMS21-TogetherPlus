@@ -128,6 +128,7 @@ public static class SavesManager
 					var copiedData = DataHelper.Copy(Singleton<GameManager>.Instance.GameDataManager.ProfileData[3]);
 
 					Il2CppArrays.Set(profileData, modSave.saveIndex, copiedData);
+					CarSlotAudit.Profile($"the menu rebuild of save slot {modSave.saveIndex}", copiedData);
 					Log.Info($"[Saves] Save slot {modSave.saveIndex} is ready for the menu.");
 				}
 			}
@@ -305,6 +306,7 @@ public static class SavesManager
 				var parking = currentSave.carsOnParking;
 				var placed = ParkSlots.Place(carOnPark, parking.Length, (slot, car) => Il2CppArrays.Set(parking, slot, car.ToGame()));
 				if (placed != carOnPark.Count) Log.Warn($"[SavesManager] {carOnPark.Count - placed} parked cars had no valid slot.");
+				CarSlotAudit.Profile("the host's parked cars (join)", currentSave);
 			}
 
 			Log.Info("-------------------Save Info---------------------");

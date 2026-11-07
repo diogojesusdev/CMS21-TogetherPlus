@@ -59,17 +59,13 @@ public sealed class SceneReturnFeature : GameFeature
 	protected override void Patch()
 	{
 		instance = this;
-		var manager = typeof(GameDataManager);
-		foreach (var target in new[]
-		         {
-			         Target(manager, nameof(GameDataManager.SaveCarInGarage), typeof(NewCarData), typeof(int)),
-			         Target(manager, nameof(GameDataManager.SaveCarInParking), typeof(NewCarData), typeof(int)),
-			         Target(manager, nameof(GameDataManager.SaveCar), typeof(NewCarData), typeof(int), typeof(bool))
-		         })
-		{
-			Prefix(target, nameof(Before));
-			Finalizer(target, nameof(After));
-		}
+		// Every car the game writes into the profile goes through CarLoader.SaveCarToFile(int, bool) (it is the only
+		// caller of GameDataManager.SaveCar); an away purchase is that call with toParking. GameDataManager.SaveCar*
+		// must never be patched themselves: they take a NewCarData, which MelonLoader 0.5.7 hands over shifted by 16
+		// bytes - the game then stores a garbage car (see PatchRules).
+		var target = Target(typeof(CarLoader), nameof(CarLoader.SaveCarToFile), typeof(int), typeof(bool));
+		Prefix(target, nameof(Before));
+		Finalizer(target, nameof(After));
 	}
 
 	protected override void Started()
@@ -175,7 +171,10 @@ public sealed class SceneReturnFeature : GameFeature
 				data = new ModNewCarData(car);
 				var list = parking ? Profile?.carsOnParking : Profile?.carsInGarage;
 				if (list != null && index < list.Length && list[index] != null && list[index].UId == car.UId && list[index].carToLoad == car.carToLoad)
+				{
 					Il2CppArrays.Set(list, index, previous);
+					CarSlotAudit.Slot("the away purchase hand-over", parking, index);
+				}
 			}
 			catch (Exception ex)
 			{
@@ -324,15 +323,8 @@ public sealed class SceneReturnFeature : GameFeature
 		}
 		using (ActionGate.Apply())
 		{
-			ParkHook.listen = false;
-			try
-			{
-				Singleton<GameManager>.Instance.GameDataManager.SaveCarInParking(car.Car.ToGame(), space);
-			}
-			finally
-			{
-				ParkHook.listen = true;
-			}
+			Singleton<GameManager>.Instance.GameDataManager.SaveCarInParking(car.Car.ToGame(), space);
+			CarSlotAudit.Slot("the away car placement", true, space);
 		}
 		ServerData.Instance.AddCarToPark(car.Car, space);
 		ServerSend.AddCarToParkPacket(host, car.Car, space);

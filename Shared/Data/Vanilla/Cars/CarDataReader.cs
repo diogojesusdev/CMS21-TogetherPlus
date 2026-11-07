@@ -213,6 +213,27 @@ public static class CarDataReader
 		return text.ToString();
 	}
 
+	/// <summary>Number of slots, or -1 when the array cannot be read.</summary>
+	public static int Count(Il2CppReferenceArray<NewCarData> cars) => Length(cars);
+
+	/// <summary>
+	/// Where slot <paramref name="index"/>'s inline car lives, with the NewCarData class and the field bias, for a
+	/// check of every field (<see cref="CarSlotAudit"/>). Nothing is wrapped.
+	/// </summary>
+	public static bool TryLocate(Il2CppReferenceArray<NewCarData> cars, int index, out IntPtr slot, out IntPtr klass, out int size, out int bias, out string problem)
+	{
+		slot = IntPtr.Zero;
+		klass = IntPtr.Zero;
+		size = 0;
+		bias = 0;
+		if (!Prepare(out problem)) return false;
+		if (!TrySlot(cars, index, out slot, out problem)) return false;
+		klass = carClass;
+		size = elementSize;
+		bias = offsetBias;
+		return true;
+	}
+
 	private static int Length(Il2CppReferenceArray<NewCarData> cars)
 	{
 		if (cars == null) return -1;

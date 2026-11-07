@@ -178,12 +178,23 @@ public abstract class GameFeature : IFeatureModule
 
 	protected void Prefix(MethodInfo target, string handler, int priority = -1)
 	{
+		Shared.Safety.PatchSafety.Require(target);
 		var method = Handler(handler);
 		if (priority >= 0) method.priority = priority;
 		harmony.Patch(target, prefix: method);
 	}
 
-	protected void Postfix(MethodInfo target, string handler) => harmony.Patch(target, postfix: Handler(handler));
+	// A target taking a game struct would corrupt the game's memory (PatchRules): Require throws, so the feature fails
+	// on its own with the reason instead.
+	protected void Postfix(MethodInfo target, string handler)
+	{
+		Shared.Safety.PatchSafety.Require(target);
+		harmony.Patch(target, postfix: Handler(handler));
+	}
 
-	protected void Finalizer(MethodInfo target, string handler) => harmony.Patch(target, finalizer: Handler(handler));
+	protected void Finalizer(MethodInfo target, string handler)
+	{
+		Shared.Safety.PatchSafety.Require(target);
+		harmony.Patch(target, finalizer: Handler(handler));
+	}
 }

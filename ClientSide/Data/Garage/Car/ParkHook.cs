@@ -11,7 +11,8 @@ namespace CMS21Together.ClientSide.Data.Garage.Car;
 [HarmonyPatch]
 public static class ParkHook
 {
-	public static bool listen = true;
+	// Never patch GameDataManager.SaveCarInParking / LoadCarInGarage: they take or return a NewCarData, which
+	// MelonLoader 0.5.7 shifts by 16 bytes (see PatchRules). The two hooks below stay disabled for that reason too.
 
 	/*[HarmonyPatch(typeof(CarLoader), nameof(GameDataManager.SaveCarInParking))]
 	[HarmonyPostfix]
@@ -48,31 +49,28 @@ public static class ParkHook
 
 	/// <summary>
 	/// A car parked in the same frame as a debit was bought (Phase 6): if the host refuses the debit, the parking
-	/// space gets back what it held before.
+	/// space gets back what it held before. A bought car reaches the parking list through
+	/// <c>CarLoader.SaveCarToFile(index, toParking: true)</c> (its only path to <c>SaveCarInParking</c>), which is
+	/// patched here: <c>GameDataManager.SaveCarInParking</c> itself must never be patched, it takes a
+	/// <see cref="NewCarData"/> (see <see cref="Shared.Safety.PatchRules"/>).
 	/// </summary>
-	[HarmonyPatch(typeof(GameDataManager), nameof(GameDataManager.SaveCarInParking))]
+	[HarmonyPatch(typeof(CarLoader), nameof(CarLoader.SaveCarToFile), typeof(int), typeof(bool))]
 	[HarmonyPrefix]
-	public static void SaveCarInParkingPurchaseHook(NewCarData carData, int index, GameDataManager __instance)
+	public static void SaveCarToParkingPurchaseHook(int index, bool toParking, CarLoader __instance)
 	{
-		if (!listen)
-		{
-			// The host's state being applied (AddCarToPark / RemoveCarFromPark below).
-			listen = true;
-			return;
-		}
-		if (!Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
+		if (!toParking || index < 0) return;
+		if (Client.Instance == null || !Client.Instance.isConnected || ActionGate.ApplyingServerState) return;
 		var txn = Player.Purchases.TxnNow();
-		if (txn == 0 || carData == null || string.IsNullOrEmpty(carData.carToLoad)) return;
+		if (txn == 0 || __instance == null || string.IsNullOrEmpty(__instance.carToLoad)) return;
 
-		var previous = __instance.LoadCarInParking(index);
-		var manager = __instance;
+		var manager = GameManager.Instance.GameDataManager;
+		var previous = manager.LoadCarInParking(index);
 		Player.Purchases.Linker.OnRefused(txn, () =>
 		{
 			using (ActionGate.Apply())
 			{
-				listen = false;
 				manager.SaveCarInParking(previous, index);
-				listen = true;
+				CarSlotAudit.Slot("the refused parking purchase", true, index);
 			}
 			Log.Info($"[ParkHook] The car bought into parking space {index} was not paid; it was taken back.");
 		});
@@ -84,8 +82,8 @@ public static class ParkHook
 			yield return new WaitForSeconds(0.25f);
 		yield return new WaitForEndOfFrame();
 
-		listen = false;
 		GameManager.Instance.GameDataManager.SaveCarInParking(car.ToGame(), index);
+		CarSlotAudit.Slot("the host's parked car", true, index);
 	}
 
 	public static IEnumerator RemoveCarFromPark(int index)
@@ -100,7 +98,6 @@ public static class ParkHook
 			Features.Garage.ParkingFeature.ApplyRemoved(index);
 			yield break;
 		}
-		listen = false;
 		GameManager.Instance.GameDataManager.SaveCarInParking(default(NewCarData), index);
 	}
 }
