@@ -137,6 +137,12 @@ gh release create v<PLUS_VERSION> --repo diogojesusdev/CMS21-TogetherPlus --targ
   never sent, the menu-return GC crash of rc28-rc34). Patch a caller with plain parameters instead (e.g.
   `CarLoader.SaveCarToFile(int, bool)` rather than `GameDataManager.SaveCar*`). `HarmonyTargetTests` fails the build for
   an attribute patch, `GameFeature` refuses such a target, and the startup log reports one as `[Patches]`.
+- **Never Harmony-patch a game method whose native code is shared.** IL2CPP folds identical bodies into one function
+  (39 windows' `HideAction()`/`Close()` are one) and Harmony detours that function, so the patch runs for all of them
+  with an `__instance` of the wrong type: the rc35 crash when closing a window inside a car. Patch a method of the class's
+  own (e.g. `LampAlignmentWindow.Hide(bool)`). `NativeCode` indexes the game's code at startup; `GameFeature` refuses
+  such a target and the startup log reports an attribute patch on one as a `[Patches]` error. To check offline, compare
+  the `AddressAttribute` RVAs in `MelonLoader\Dependencies\Il2CppAssemblyGenerator\Cpp2IL\cpp2il_out`.
 - **After the mod writes a car into the profile, call `CarSlotAudit.Slot`/`Profile`.** It checks every reference field
   the GC will walk and names the writer in a `[CarAudit]` error, instead of the game crashing minutes later.
 - **Game `List<T>` can have `_items == null`.** `ToArray()` then throws `ArgumentNullException`. Check `_items` first (see `ModNewCarData.CopyList`).

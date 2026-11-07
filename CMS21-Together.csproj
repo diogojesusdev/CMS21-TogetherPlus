@@ -222,6 +222,7 @@
         <Compile Include="Shared\Safety\CrashReport.cs" />
         <Compile Include="Shared\Safety\Guard.cs" />
         <Compile Include="Shared\Safety\HeapCheck.cs" />
+        <Compile Include="Shared\Safety\NativeCode.cs" />
         <Compile Include="Shared\Safety\PatchRules.cs" />
         <Compile Include="Shared\Safety\PatchSafety.cs" />
     <Compile Include="Shared\PlusSaves.cs" />

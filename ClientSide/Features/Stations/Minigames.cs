@@ -132,6 +132,7 @@ public sealed class DynoFeature : GameFeature
 public sealed class HeadlampAlignmentFeature : GameFeature
 {
 	private static HeadlampAlignmentFeature instance;
+	private static bool open;
 
 	public override string Id => FeatureCatalog.HeadlampAlignment;
 
@@ -139,18 +140,26 @@ public sealed class HeadlampAlignmentFeature : GameFeature
 	{
 		instance = this;
 		Prefix(Target(typeof(LampAlignmentWindow), nameof(LampAlignmentWindow.Show)), nameof(Opening), Priority.First);
-		Prefix(Target(typeof(LampAlignmentWindow), nameof(LampAlignmentWindow.HideAction)), nameof(Closing));
+		// Not HideAction(): IL2CPP folded it with 38 other windows' HideAction/Close into one native function, so a
+		// patch on it ran for every one of them with a foreign __instance (the crash when closing a window in a car).
+		Prefix(Target(typeof(LampAlignmentWindow), nameof(LampAlignmentWindow.Hide), typeof(bool)), nameof(Closing));
 	}
 
 	private static bool Opening(ref bool __result)
 	{
-		if (Claim(LockKeys.Tool("headlamp"))) return true;
+		if (Claim(LockKeys.Tool("headlamp")))
+		{
+			open = true;
+			return true;
+		}
 		__result = false;
 		return false;
 	}
 
 	private static void Closing(LampAlignmentWindow __instance)
 	{
+		if (!open) return;
+		open = false;
 		if (!LocalAction || __instance == null) return;
 		var loader = __instance.carLoader;
 		var id = loader != null ? CarLoaderRegistry.IdOf(loader) : -1;
@@ -186,6 +195,7 @@ public sealed class HeadlampAlignmentFeature : GameFeature
 public sealed class WheelAlignmentFeature : GameFeature
 {
 	private static WheelAlignmentFeature instance;
+	private static bool open;
 
 	public override string Id => FeatureCatalog.WheelAlignment;
 
@@ -193,19 +203,25 @@ public sealed class WheelAlignmentFeature : GameFeature
 	{
 		instance = this;
 		Prefix(Target(typeof(WheelsAlignmentWindow), nameof(WheelsAlignmentWindow.Show)), nameof(Opening), Priority.First);
-		Prefix(Target(typeof(WheelsAlignmentWindow), nameof(WheelsAlignmentWindow.HideAction)), nameof(Closing));
+		// Hide(bool), not the shared HideAction(): see HeadlampAlignmentFeature.Patch.
+		Prefix(Target(typeof(WheelsAlignmentWindow), nameof(WheelsAlignmentWindow.Hide), typeof(bool)), nameof(Closing));
 	}
-
 
 	private static bool Opening(ref bool __result)
 	{
-		if (Claim(LockKeys.Tool("alignment"))) return true;
+		if (Claim(LockKeys.Tool("alignment")))
+		{
+			open = true;
+			return true;
+		}
 		__result = false;
 		return false;
 	}
 
 	private static void Closing(WheelsAlignmentWindow __instance)
 	{
+		if (!open) return;
+		open = false;
 		var loader = __instance != null ? __instance.carLoader : null;
 		if (!LocalAction || loader == null) return;
 		var id = CarLoaderRegistry.IdOf(loader);

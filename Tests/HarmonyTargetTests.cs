@@ -65,6 +65,19 @@ public class HarmonyTargetTests
 	}
 
 	[Test]
+	public void SharedNativeCodeIsRefused()
+	{
+		Assert.IsNull(PatchRules.SharedCodeReason(0, null), "unknown code is not refused");
+		Assert.IsNull(PatchRules.SharedCodeReason(1, new[] { "A.B" }), "a method's own code is fine");
+		Assert.AreEqual("its native code is shared with 1 other game method (CarInfoWindow.HideAction)",
+			PatchRules.SharedCodeReason(2, new[] { "CarInfoWindow.HideAction" }));
+		Assert.AreEqual("its native code is shared with 38 other game methods (A.HideAction, B.Close, +36 more)",
+			PatchRules.SharedCodeReason(39, new[] { "A.HideAction", "B.Close" }));
+		Assert.AreEqual("its native code is shared with 3 other game methods",
+			PatchRules.SharedCodeReason(4, new string[0]));
+	}
+
+	[Test]
 	public void NoAttributePatchTargetsAGameValueType()
 	{
 		using var context = LoadMod(out var mod, out var valueType);
