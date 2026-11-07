@@ -38,9 +38,9 @@ public class PayoutsTests
 			var winner = order.FirstOrDefault(slot => payouts.Decide(slot, PurchaseKind.JobEnd, job.ToString(), 1000, true) == TxnStatus.Applied);
 			Assert.That(winner, Is.GreaterThan(0), $"order {job} was approved");
 			Assert.That(payouts.Done(PurchaseKind.JobEnd, job.ToString()), Is.False, "the payout waits for the hand-over");
-			Assert.That(payouts.CompleteEnd(winner, job.ToString(), 1000, true), Is.EqualTo(TxnStatus.Applied));
+			Assert.That(payouts.CompleteEnd(winner, job.ToString(), true, out _), Is.EqualTo(TxnStatus.Applied));
 			foreach (var other in order.Where(slot => slot != winner))
-				Assert.That(payouts.CompleteEnd(other, job.ToString(), 1000, true), Is.EqualTo(TxnStatus.Invalid),
+				Assert.That(payouts.CompleteEnd(other, job.ToString(), true, out _), Is.EqualTo(TxnStatus.Invalid),
 					$"order {job} was only approved for its winner");
 			Assert.That(payouts.Done(PurchaseKind.JobEnd, job.ToString()), Is.True);
 		}
@@ -76,7 +76,7 @@ public class PayoutsTests
 	{
 		Assert.That(payouts.Decide(1, PurchaseKind.JobEnd, "9", 1000, false), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(economy.Ledger.Money, Is.EqualTo(500), "the payout is granted when the hand-over is applied");
-		Assert.That(payouts.CompleteEnd(1, "9", 1000, false), Is.EqualTo(TxnStatus.Applied));
+		Assert.That(payouts.CompleteEnd(1, "9", false, out _), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(economy.Ledger.Money, Is.EqualTo(500), "sandbox pays nothing");
 		Assert.That(payouts.Decide(1, PurchaseKind.JobEnd, "10", -1, true), Is.EqualTo(TxnStatus.Invalid));
 		Assert.That(payouts.Decide(1, PurchaseKind.Upgrade, "11", 0, true), Is.EqualTo(TxnStatus.Invalid));
@@ -91,11 +91,20 @@ public class PayoutsTests
 		Assert.That(payouts.Done(PurchaseKind.JobEnd, "1"), Is.False);
 		Assert.That(payouts.Decide(2, PurchaseKind.JobEnd, "1", 10, true), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(payouts.Done(PurchaseKind.JobEnd, "1"), Is.False, "the payout is paid on completion");
-		Assert.That(payouts.CompleteEnd(2, "1", 10, true), Is.EqualTo(TxnStatus.Applied));
+		Assert.That(payouts.CompleteEnd(2, "1", true, out _), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(payouts.Done(PurchaseKind.JobEnd, "1"), Is.True);
 		var noWallet = new Payouts(null, () => now);
 		Assert.That(noWallet.Decide(1, PurchaseKind.JobEnd, "2", 10, true), Is.EqualTo(TxnStatus.Applied));
-		Assert.That(noWallet.CompleteEnd(1, "2", 10, true), Is.EqualTo(TxnStatus.NotReady), "no wallet yet: retry later");
+		Assert.That(noWallet.CompleteEnd(1, "2", true, out _), Is.EqualTo(TxnStatus.NotReady), "no wallet yet: retry later");
+	}
+
+	[Test]
+	public void TheHandOverPaysTheAmountTheHostApproved()
+	{
+		Assert.That(payouts.Decide(2, PurchaseKind.JobEnd, "20", 2106, true), Is.EqualTo(TxnStatus.Applied));
+		Assert.That(payouts.CompleteEnd(2, "20", true, out var paid), Is.EqualTo(TxnStatus.Applied));
+		Assert.That(paid, Is.EqualTo(2106));
+		Assert.That(economy.Ledger.Money, Is.EqualTo(500 + 2106), "the order's payout reached the shared wallet");
 	}
 
 	[Test]
@@ -104,9 +113,9 @@ public class PayoutsTests
 		Assert.That(payouts.Decide(2, PurchaseKind.JobEnd, "12", 10, true), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(payouts.Decide(3, PurchaseKind.JobEnd, "12", 10, true), Is.EqualTo(TxnStatus.Invalid), "one hand-over at a time");
 		now += Payouts.JobEndApprovalMs + 1;
-		Assert.That(payouts.CompleteEnd(2, "12", 10, true), Is.EqualTo(TxnStatus.Invalid), "the old approval expired");
+		Assert.That(payouts.CompleteEnd(2, "12", true, out _), Is.EqualTo(TxnStatus.Invalid), "the old approval expired");
 		Assert.That(payouts.Decide(3, PurchaseKind.JobEnd, "12", 10, true), Is.EqualTo(TxnStatus.Applied));
-		Assert.That(payouts.CompleteEnd(3, "12", 10, true), Is.EqualTo(TxnStatus.Applied));
+		Assert.That(payouts.CompleteEnd(3, "12", true, out _), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(payouts.Done(PurchaseKind.JobEnd, "12"), Is.True);
 	}
 

@@ -599,17 +599,18 @@ public static class ServerHandle
 	{
 		var job = packet.Read<ModJob>();
 		// Only the player the host approved may hand the order over, and the payout is granted here (not on the ask):
-		// a lost answer no longer pays without completing, and the amount comes from the host's own order when known.
-		var stored = ServerData.Instance.selectedJobs.FirstOrDefault(j => j.id == job.id)
-		             ?? ServerData.Instance.jobs.FirstOrDefault(j => j.id == job.id);
-		var amount = Math.Min((long)Math.Max(0, stored?.TotalPayout ?? job.TotalPayout), EconomyLedger.MaxMoneyDelta);
+		// a lost answer no longer pays without completing. The amount is the one approved on the ask; the host's stored
+		// order has no final payout yet (rc37 paid 0 from it, so no order was ever paid).
 		var paid = ClientData.Instance == null || ClientData.Instance.gamemode != Gamemode.Sandbox;
-		var status = Server.Instance?.Payouts?.CompleteEnd(fromClient, job.id.ToString(), amount, paid) ?? TxnStatus.NotReady;
+		long amount = 0;
+		var status = Server.Instance?.Payouts?.CompleteEnd(fromClient, job.id.ToString(), paid, out amount) ?? TxnStatus.NotReady;
 		if (status != TxnStatus.Applied)
 		{
 			Log.Warn($"[ServerHandle] #{fromClient} ended order {job.id} without the host's approval ({status}); ignored.");
 			return;
 		}
+		if (paid && amount == 0) Log.Warn($"[ServerHandle] #{fromClient} ended order {job.id}: the payout was 0.");
+		else Log.Info($"[ServerHandle] #{fromClient} ended order {job.id}: paid {amount}.");
 
 		//Log.Info("SV : endjob !");
 		ServerData.Instance.EndJob(job);

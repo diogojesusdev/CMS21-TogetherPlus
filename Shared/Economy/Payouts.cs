@@ -26,7 +26,7 @@ public sealed class Payouts
 	private readonly EconomyServer economy;
 	private readonly Func<long> clock;
 	private readonly Dictionary<string, long> done = new();
-	private readonly Dictionary<(int slot, string id), long> approvals = new();
+	private readonly Dictionary<(int slot, string id), (long until, long amount)> approvals = new();
 	private readonly Queue<string> order = new();
 
 	public Payouts(EconomyServer economy, Func<long> clock)
@@ -78,7 +78,7 @@ public sealed class Payouts
 			if (amount > EconomyLedger.MaxMoneyDelta) return TxnStatus.Invalid;
 			PurgeApprovals(now);
 			if (ApprovalHeld(id, now)) return TxnStatus.Invalid;
-			approvals[(slot, id)] = now + JobEndApprovalMs;
+			approvals[(slot, id)] = (now + JobEndApprovalMs, amount);
 			return TxnStatus.Applied;
 		}
 		var status = !paid || amount == 0 ? TxnStatus.Applied : economy?.Grant(slot, amount) ?? TxnStatus.NotReady;
@@ -93,18 +93,23 @@ public sealed class Payouts
 		return status;
 	}
 
-	/// <summary>Grants the approved hand-over's payout once, when the hand-over is actually applied.</summary>
-	public TxnStatus CompleteEnd(int slot, string id, long amount, bool paid)
+	/// <summary>
+	/// Grants the approved hand-over's payout once, when the hand-over is actually applied. The amount is the one the
+	/// host approved on the ask: the host's stored copy of the order has no final payout yet (it is 0 until handed over).
+	/// </summary>
+	public TxnStatus CompleteEnd(int slot, string id, bool paid, out long amount)
 	{
-		if (string.IsNullOrEmpty(id) || amount < 0 || amount > EconomyLedger.MaxMoneyDelta) return TxnStatus.Invalid;
+		amount = 0;
+		if (string.IsNullOrEmpty(id)) return TxnStatus.Invalid;
 		var now = clock();
 		PurgeApprovals(now);
-		if (!approvals.TryGetValue((slot, id), out var until) || until < now) return TxnStatus.Invalid;
+		if (!approvals.TryGetValue((slot, id), out var approval) || approval.until < now) return TxnStatus.Invalid;
+		amount = approval.amount;
 		var status = !paid || amount == 0 ? TxnStatus.Applied : economy?.Grant(slot, amount) ?? TxnStatus.NotReady;
 		if (status != TxnStatus.Applied)
 		{
 			// No wallet yet: keep the approval so the hand-over can be retried.
-			approvals[(slot, id)] = now + JobEndApprovalMs;
+			approvals[(slot, id)] = (now + JobEndApprovalMs, amount);
 			return status;
 		}
 		approvals.Remove((slot, id));
@@ -115,7 +120,7 @@ public sealed class Payouts
 	private bool ApprovalHeld(string id, long now)
 	{
 		foreach (var pair in approvals)
-			if (pair.Key.id == id && pair.Value > now) return true;
+			if (pair.Key.id == id && pair.Value.until > now) return true;
 		return false;
 	}
 
@@ -124,7 +129,7 @@ public sealed class Payouts
 		if (approvals.Count == 0) return;
 		var expired = new System.Collections.Generic.List<(int, string)>();
 		foreach (var pair in approvals)
-			if (pair.Value < now) expired.Add(pair.Key);
+			if (pair.Value.until < now) expired.Add(pair.Key);
 		foreach (var key in expired) approvals.Remove(key);
 	}
 
