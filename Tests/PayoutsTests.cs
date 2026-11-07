@@ -44,7 +44,7 @@ public class PayoutsTests
 					$"order {job} was only approved for its winner");
 			Assert.That(payouts.Done(PurchaseKind.JobEnd, job.ToString()), Is.True);
 		}
-		Assert.That(economy.Ledger.Money, Is.EqualTo(500 + 200 * 1000), "every order paid exactly once");
+		Assert.That(economy.Ledger.Money, Is.EqualTo(500 + 200 * 1000 * Payouts.OrderPayoutMultiplier), "every order paid exactly once");
 	}
 
 	[Test]
@@ -103,8 +103,16 @@ public class PayoutsTests
 	{
 		Assert.That(payouts.Decide(2, PurchaseKind.JobEnd, "20", 2106, true), Is.EqualTo(TxnStatus.Applied));
 		Assert.That(payouts.CompleteEnd(2, "20", true, out var paid), Is.EqualTo(TxnStatus.Applied));
-		Assert.That(paid, Is.EqualTo(2106));
-		Assert.That(economy.Ledger.Money, Is.EqualTo(500 + 2106), "the order's payout reached the shared wallet");
+		Assert.That(paid, Is.EqualTo(2106 * Payouts.OrderPayoutMultiplier));
+		Assert.That(economy.Ledger.Money, Is.EqualTo(500 + 2106 * Payouts.OrderPayoutMultiplier), "the order's payout reached the shared wallet");
+	}
+
+	[Test]
+	public void TheMultipliedPayoutIsWhatGetsRangeChecked()
+	{
+		var limit = EconomyLedger.MaxMoneyDelta / Payouts.OrderPayoutMultiplier;
+		Assert.That(payouts.Decide(1, PurchaseKind.JobEnd, "30", limit + 1, true), Is.EqualTo(TxnStatus.Invalid));
+		Assert.That(payouts.Decide(1, PurchaseKind.JobEnd, "30", limit, true), Is.EqualTo(TxnStatus.Applied));
 	}
 
 	[Test]

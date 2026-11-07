@@ -23,6 +23,9 @@ public sealed class Payouts
 	/// <summary>A hand-over approval is only good this long: the payout is granted when the car is actually handed over.</summary>
 	public const long JobEndApprovalMs = 120_000;
 
+	/// <summary>Balance: the host pays every handed-over order this many times the game's payout.</summary>
+	public const long OrderPayoutMultiplier = 3;
+
 	private readonly EconomyServer economy;
 	private readonly Func<long> clock;
 	private readonly Dictionary<string, long> done = new();
@@ -75,10 +78,11 @@ public sealed class Payouts
 		{
 			// Approve only: the money is granted by CompleteEnd when EndJobPacket proves the car was handed over.
 			// This used to pay on the ask and store MaxValue, so a lost answer paid once and blocked the order forever.
-			if (amount > EconomyLedger.MaxMoneyDelta) return TxnStatus.Invalid;
+			var payout = amount * OrderPayoutMultiplier;
+			if (payout > EconomyLedger.MaxMoneyDelta) return TxnStatus.Invalid;
 			PurgeApprovals(now);
 			if (ApprovalHeld(id, now)) return TxnStatus.Invalid;
-			approvals[(slot, id)] = (now + JobEndApprovalMs, amount);
+			approvals[(slot, id)] = (now + JobEndApprovalMs, payout);
 			return TxnStatus.Applied;
 		}
 		var status = !paid || amount == 0 ? TxnStatus.Applied : economy?.Grant(slot, amount) ?? TxnStatus.NotReady;
