@@ -53,6 +53,15 @@ public class ClientSend
 		}
 	}
 
+	public static void CheatMoneyPacket()
+	{
+		using (var packet = new Packet((int)PacketTypes.cheatMoney))
+		{
+			packet.Write((byte)0);
+			SendData(packet);
+		}
+	}
+
 	public static void PositionPacket(Vector3Serializable position)
 	{
 		using (var packet = new Packet((int)PacketTypes.position))

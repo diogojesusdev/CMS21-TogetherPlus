@@ -228,6 +228,21 @@ public static class ServerHandle
 		}
 	}
 
+	public const long CheatMoneyAmount = 500;
+	private const long CheatCooldownMs = 1000;
+	private static readonly System.Diagnostics.Stopwatch cheatClock = System.Diagnostics.Stopwatch.StartNew();
+	private static readonly Dictionary<int, long> cheatLast = new();
+
+	/// <summary>The "zengo" cheat: the host credits a fixed amount (never one the client names) to the sender.</summary>
+	public static void CheatMoneyPacket(int fromClient, Packet packet)
+	{
+		var now = cheatClock.ElapsedMilliseconds;
+		if (cheatLast.TryGetValue(fromClient, out var last) && now - last < CheatCooldownMs) return;
+		cheatLast[fromClient] = now;
+		var status = Server.Instance?.Economy?.Grant(fromClient, CheatMoneyAmount) ?? Shared.Economy.TxnStatus.NotReady;
+		Log.Info($"[Cheat] #{fromClient} used zengo: +{CheatMoneyAmount} ({status}).");
+	}
+
 	/// <summary>Audit A15: the snapshot goes to the player who asked, and only to them.</summary>
 	public static void InventoryRequestPacket(int fromClient, Packet packet)
 	{

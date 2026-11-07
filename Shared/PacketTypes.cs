@@ -89,5 +89,8 @@ public enum PacketTypes
 	bulkSell,
 
 	/// <summary>A player's item UID counter (a new profile gets no spawn packet; Phase 8 assessment).</summary>
-	uidRange
+	uidRange,
+
+	/// <summary>The "zengo" cheat chord was pressed: the host credits a fixed amount to the sender.</summary>
+	cheatMoney
 }

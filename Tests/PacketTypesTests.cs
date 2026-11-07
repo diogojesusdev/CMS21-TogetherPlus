@@ -92,6 +92,7 @@ public class PacketTypesTests
 		new(PacketTypes.feature, 73),
 		new(PacketTypes.bulkSell, 74),
 		new(PacketTypes.uidRange, 75),
+		new(PacketTypes.cheatMoney, 76),
 	};
 
 	[Test]

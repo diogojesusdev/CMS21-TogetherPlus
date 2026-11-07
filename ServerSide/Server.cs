@@ -397,6 +397,7 @@ public class Server
 
 		r.Register((int)PacketTypes.econTxn, (slot, p) => Instance?.Economy?.HandleTxn(slot, p));
 		r.Register((int)PacketTypes.purchaseAsk, ServerHandle.PurchaseAskPacket);
+		r.Register((int)PacketTypes.cheatMoney, ServerHandle.CheatMoneyPacket);
 		r.Register((int)PacketTypes.bulkSell, ClientSide.Features.Inventory.BulkSellFeature.HandleSale);
 		r.Register((int)PacketTypes.feature, (slot, packet) => Instance.FeatureRelay?.Handle(slot, FeatureMessage.Read(packet)));
 		r.Register((int)PacketTypes.carCheck, ServerHandle.CarCheckPacket);
