@@ -44,6 +44,7 @@ public static class Inventory
 		loadSkip = false;
 		populated = false;
 		reconcileDue = false;
+		lastDrift = null;
 		applying = 0;
 		nextCheck = 0;
 		var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -149,6 +150,52 @@ public static class Inventory
 		nextCheck = now + CheckEverySeconds;
 		items.SendCheck();
 		groups.SendCheck();
+		CheckDrift(GameData.Instance.localInventory);
+	}
+
+	private static string lastDrift;
+
+	/// <summary>
+	/// Reconcile trusts what the mod believes the game holds. If the game itself lost or gained an item the mod ignored
+	/// (a change made while applying another player's state), nothing would ever repair it. Compare the game's real
+	/// list with the shared inventory; a difference seen on two checks in a row (nothing in flight) is repaired.
+	/// </summary>
+	private static void CheckDrift(global::Inventory inventory)
+	{
+		if (!items.Mirror.Synced || reconcileDue || applying > 0 || frozen > 0)
+		{
+			lastDrift = null;
+			return;
+		}
+		try
+		{
+			var real = new Dictionary<long, ModItem>();
+			foreach (var item in inventory.GetItems())
+				if (item != null)
+					real[item.UID] = new ModItem(item);
+			var (add, remove) = InventoryDiff.Compute(real, items.Mirror.Desired());
+			if (add.Count == 0 && remove.Count == 0)
+			{
+				lastDrift = null;
+				return;
+			}
+			var key = string.Join(",", add.Select(i => i.UID)) + "|" + string.Join(",", remove);
+			if (key != lastDrift)
+			{
+				lastDrift = key;
+				return;
+			}
+			lastDrift = null;
+			Log.Warn($"[Inventory] The game's items differ from the shared inventory; repairing. Missing: {string.Join(", ", add.Select(i => $"{i.UID} {i.ID}"))}. Extra: {string.Join(", ", remove.Select(uid => $"{uid} {real[uid].ID}"))}.");
+			gameItems.Clear();
+			foreach (var pair in real) gameItems[pair.Key] = pair.Value;
+			reconcileDue = true;
+		}
+		catch (Exception ex)
+		{
+			lastDrift = null;
+			Log.Warn($"[Inventory] Could not compare the game's items with the shared inventory: {ex.Message}");
+		}
 	}
 
 	/// <summary>Adds and removes in the game whatever differs from the shared inventory. Never sent back.</summary>
