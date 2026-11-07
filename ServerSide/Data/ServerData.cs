@@ -238,15 +238,28 @@ public class ServerData
 		if (selectedJobs.Any(j => j.id == job.id)) selectedJobs.Remove(selectedJobs.First(j => j.id == job.id));
 	}
 
-	public void UpdateFluid(ModFluidData fluid, int carLoaderID)
+	/// <summary>Stores the fluid; false when it is what the server already holds (a player re-sending an unchanged level).</summary>
+	public bool UpdateFluid(ModFluidData fluid, int carLoaderID)
 	{
-		if (fluid?.CarFluid == null) return;
-		if (!CarSpawnDatas.TryGetValue(carLoaderID, out var car) || car == null) return;
+		if (fluid?.CarFluid == null) return true;
+		if (!CarSpawnDatas.TryGetValue(carLoaderID, out var car) || car == null) return true;
 
 		// The live packet already reaches every connected player; this keeps the stored car (late join, scene
 		// return, resync) in step, or the resynced copy reverts the fluid level.
 		var fluids = car.FluidsData;
-		switch ((ModCarFluidType)fluid.CarFluid.FluidType)
+		var type = (ModCarFluidType)fluid.CarFluid.FluidType;
+		ModFluidData stored = null;
+		switch (type)
+		{
+			case ModCarFluidType.EngineOil: stored = fluids.Oil; break;
+			case ModCarFluidType.Brake: stored = FindFluid(fluids.Brake, fluid); break;
+			case ModCarFluidType.EngineCoolant: stored = FindFluid(fluids.EngineCoolant, fluid); break;
+			case ModCarFluidType.PowerSteering: stored = FindFluid(fluids.PowerSteering, fluid); break;
+			case ModCarFluidType.WindscreenWash: stored = FindFluid(fluids.WindscreenWash, fluid); break;
+		}
+		if (stored != null && stored.Level == fluid.Level && stored.Condition == fluid.Condition) return false;
+
+		switch (type)
 		{
 			case ModCarFluidType.EngineOil:
 				fluids.Oil = fluid.WithoutCarFluid();
@@ -264,9 +277,18 @@ public class ServerData
 				fluids.WindscreenWash = MergeFluid(fluids.WindscreenWash, fluid);
 				break;
 			default:
-				return;
+				return true;
 		}
 		car.FluidsData = fluids;
+		return true;
+	}
+
+	private static ModFluidData FindFluid(List<ModFluidData> list, ModFluidData fluid)
+	{
+		if (list == null) return null;
+		foreach (var item in list)
+			if (item?.CarFluid != null && item.CarFluid.ID == fluid.CarFluid.ID) return item;
+		return null;
 	}
 
 	private static List<ModFluidData> MergeFluid(List<ModFluidData> list, ModFluidData fluid)

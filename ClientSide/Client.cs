@@ -141,6 +141,7 @@ public class Client
 		Wallet.Reset();
 		Purchases.Reset(Economy);
 		CarChecks.Reset();
+		PartUpdateHooks.ResetFluidCache();
 		HostSaveId = null;
 		Replicas = null;
 		if (!host)

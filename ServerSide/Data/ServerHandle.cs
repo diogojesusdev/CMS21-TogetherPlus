@@ -442,9 +442,13 @@ public static class ServerHandle
 		var carLoaderID = packet.ReadInt();
 		ModFluidData fluid = packet.Read<ModFluidData>();
 		
-		ServerData.Instance.UpdateFluid(fluid, carLoaderID);
+		if (!ServerData.Instance.UpdateFluid(fluid, carLoaderID)) return;
+		if (fluid?.CarFluid != null && FluidTrace.Allow(fromClient, out var skipped))
+			Log.Info($"[Fluid] #{fromClient} car {carLoaderID} {(ModCarFluidType)fluid.CarFluid.FluidType} -> level {fluid.Level:0.00}, condition {fluid.Condition:0.00}{LogThrottle.Skipped(skipped)}");
 		ServerSend.CarFluidPacket(fromClient, carLoaderID, fluid);
 	}
+
+	private static readonly LogThrottle FluidTrace = new(10, 5000);
 
 	public static void DeleteCarPacket(int fromClient, Packet packet)
 	{

@@ -65,10 +65,24 @@ public static class PartUpdateHooks
 		if (__instance != null && __instance.CarFluid != null)
 		{
 			int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.CarFluid);
+			if (!Changed(carLoaderID, (int)__instance.CarFluid.FluidType, __instance.CarFluid.ID, __instance.Level, __instance.Condition)) return;
 			ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance));
 		}
 
 	}
+
+	// The game re-sets unchanged levels every frame on some cars; only a real change is sent.
+	private static readonly System.Collections.Generic.Dictionary<(int, int, int), (float, float)> LastFluid = new();
+
+	public static bool Changed(int carLoaderID, int type, int id, float level, float condition)
+	{
+		var key = (carLoaderID, type, id);
+		if (LastFluid.TryGetValue(key, out var last) && last.Item1 == level && last.Item2 == condition) return false;
+		LastFluid[key] = (level, condition);
+		return true;
+	}
+
+	public static void ResetFluidCache() => LastFluid.Clear();
 
 	[HarmonyPatch(typeof(PartScript), nameof(PartScript.DoMount))]
 	[HarmonyPostfix]

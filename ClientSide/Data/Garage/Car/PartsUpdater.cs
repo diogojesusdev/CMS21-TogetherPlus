@@ -357,6 +357,7 @@ public static class PartsUpdater
 		// Silence both fluid hooks for this frame: the game may reach either or both for one applied change, and
 		// whichever runs second must not send the value back (the report's FL-4).
 		PartUpdateHooks.Suppress();
+		PartUpdateHooks.Changed(carLoaderID, (int)fluid.CarFluid.FluidType, fluid.CarFluid.ID, fluid.Level, fluid.Condition);
 		var fluids = GameData.Instance.carLoaders[carLoaderID].FluidsData;
 		if (fluid.CarFluid.FluidType == ModCarFluidType.EngineOil)
 		{
