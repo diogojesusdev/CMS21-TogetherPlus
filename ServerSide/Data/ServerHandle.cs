@@ -610,6 +610,18 @@ public static class ServerHandle
 		Server.Instance.Send(fromClient, answer, true);
 	}
 
+	/// <summary>Once per hand-over: what the order says it is worth, to tell a real small payout from a partial one.</summary>
+	private static void LogPayoutBreakdown(int fromClient, ModJob job, long paid)
+	{
+		var tasks = new System.Text.StringBuilder();
+		if (job.jobTasks != null)
+			foreach (var task in job.jobTasks)
+				tasks.Append($" [{task.type}/{task.subtype} done={task.Done} spent={task.moneySpent} parts={task.partsCount}]");
+		Log.Info($"[ServerHandle] #{fromClient} order {job.id} payout breakdown: paid {paid}, TotalPayout {job.TotalPayout}, " +
+		         $"TaskBonus {job.TaskBonus}, JobBonus {job.JobBonus}, MoneySpent {job.MoneySpent} (difficulty {job.MoneySpentWithDifficultyMod}), " +
+		         $"XP {job.XP}, completed {job.IsCompleted}, mission {job.IsMission}, tasks:{tasks}");
+	}
+
 	public static void EndJobPacket(int fromClient, Packet packet)
 	{
 		var job = packet.Read<ModJob>();
@@ -626,6 +638,7 @@ public static class ServerHandle
 		}
 		if (paid && amount == 0) Log.Warn($"[ServerHandle] #{fromClient} ended order {job.id}: the payout was 0.");
 		else Log.Info($"[ServerHandle] #{fromClient} ended order {job.id}: paid {amount}.");
+		LogPayoutBreakdown(fromClient, job, amount);
 
 		//Log.Info("SV : endjob !");
 		ServerData.Instance.EndJob(job);
