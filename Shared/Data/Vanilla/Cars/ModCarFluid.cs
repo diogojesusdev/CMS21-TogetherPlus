@@ -10,6 +10,13 @@ public class ModCarFluid
 	public bool HasReservoir;
 
 
+	public ModCarFluid(ModCarFluidType type, int id = 0, bool hasReservoir = false)
+	{
+		FluidType = type;
+		ID = id;
+		HasReservoir = hasReservoir;
+	}
+
 	public ModCarFluid(CarFluid data)
 	{
 		FluidType = (ModCarFluidType)data.FluidType;

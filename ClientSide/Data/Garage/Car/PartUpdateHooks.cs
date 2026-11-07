@@ -52,7 +52,7 @@ public static class PartUpdateHooks
 		if (carLoader == null || !carLoader.IsCarLoaded()) return;
 		var oil = carLoader.FluidsData?.Oil;
 		if (oil == null) return;
-		ClientSend.CarFluid(CarLoaderRegistry.IdOf(carLoader), new ModFluidData(oil));
+		ClientSend.CarFluid(CarLoaderRegistry.IdOf(carLoader), ModFluidData.ForOil(oil));
 	}
 	
 	[HarmonyPatch(typeof(FluidData), nameof(FluidData.SetLevel))]

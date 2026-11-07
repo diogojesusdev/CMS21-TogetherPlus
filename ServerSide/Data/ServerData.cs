@@ -249,7 +249,7 @@ public class ServerData
 		switch ((ModCarFluidType)fluid.CarFluid.FluidType)
 		{
 			case ModCarFluidType.EngineOil:
-				fluids.Oil = fluid;
+				fluids.Oil = fluid.WithoutCarFluid();
 				break;
 			case ModCarFluidType.Brake:
 				fluids.Brake = MergeFluid(fluids.Brake, fluid);

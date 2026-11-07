@@ -357,7 +357,16 @@ public static class PartsUpdater
 		// Silence both fluid hooks for this frame: the game may reach either or both for one applied change, and
 		// whichever runs second must not send the value back (the report's FL-4).
 		PartUpdateHooks.Suppress();
-		GameData.Instance.carLoaders[carLoaderID].FluidsData
-			.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
+		var fluids = GameData.Instance.carLoaders[carLoaderID].FluidsData;
+		if (fluid.CarFluid.FluidType == ModCarFluidType.EngineOil)
+		{
+			// The game's own refill writes the oil straight into Oil, which has no CarFluid.
+			if (fluids.Oil == null) yield break;
+			fluids.Oil.Level = fluid.Level;
+			fluids.Oil.Condition = fluid.Condition;
+			if (Log.IsEnabled(LogLevel.Debug)) Log.Debug($"[Apply] Engine oil on car {carLoaderID} set to {fluid.Level:0.00}.");
+			yield break;
+		}
+		fluids.SetLevelAndCondition(fluid.Level, fluid.Condition, (CarFluidType)fluid.CarFluid.FluidType);
 	}
 }
