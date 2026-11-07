@@ -27,15 +27,21 @@ public class ModNewMachines
 
 	public ModNewMachines(NewMachines data)
 	{
-		GroupOnWheelBalancer = new ModGroupItem(data.GroupOnWheelBalancer);
+		GroupOnWheelBalancer = Wrap(data.GroupOnWheelBalancer);
 		WheelWasBalanced = data.WheelWasBalanced;
-		GroupOnTireChanger = new ModGroupItem(data.GroupOnTireChanger);
+		GroupOnTireChanger = Wrap(data.GroupOnTireChanger);
 		GroupOnTireChangerIsMounting = data.GroupOnTireChangerIsMounting;
-		GroupOnSpringClamp = new ModGroupItem(data.GroupOnSpringClamp);
+		GroupOnSpringClamp = Wrap(data.GroupOnSpringClamp);
 		GroupOnSpringClampIsMounting = data.GroupOnSpringClampIsMounting;
-		GroupOnEngineStand = new ModGroupItem(data.GroupOnEngineStand);
+		GroupOnEngineStand = Wrap(data.GroupOnEngineStand);
 		EngineStandAngle = data.EngineStandAngle;
-		ItemOnBatteryCharger = new ModItem(data.ItemOnBatteryCharger);
+		ItemOnBatteryCharger = data.ItemOnBatteryCharger != null ? new ModItem(data.ItemOnBatteryCharger) : new ModItem();
+	}
+
+	// An empty machine slot is null in the game; that is normal, not an error.
+	private static ModGroupItem Wrap(GroupItem group)
+	{
+		return group != null ? new ModGroupItem(group) : new ModGroupItem();
 	}
 
 	public NewMachines ToGame()
