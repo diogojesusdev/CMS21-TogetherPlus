@@ -19,6 +19,7 @@ public static class FeatureList
 		new Visuals.ItemPaintFeature(),
 		new Visuals.LicensePlatesFeature(),
 		new Visuals.WheelVisualsFeature(),
+		new Visuals.WheelDimensionsFeature(),
 		new Visuals.WindowTintFeature(),
 		new Visuals.TuningPartsFeature(),
 		new Visuals.ExaminedFeature(),

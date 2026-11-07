@@ -229,6 +229,19 @@ public class FeatureTests
 	}
 
 	[Test]
+	public void ACarsWheelDimensionsAreKeptForAPlayerWhoRejoins()
+	{
+		var direct = new List<(int to, FeatureMessage m)>();
+		var relay = new FeatureRelay(_ => true, (_, _) => { }, (s, m) => direct.Add((s, m)));
+		relay.Handle(1, Msg(FeatureCatalog.WheelDimensions, FeatureMessageKind.State, "car/4/wheels", 1));
+		relay.Handle(1, Msg(FeatureCatalog.WheelDimensions, FeatureMessageKind.State, "car/4/wheels", 2));
+
+		Assert.That(relay.SendCarStates(2, 4), Is.EqualTo(1), "only the newest wheels of the car");
+		Assert.That(direct.Single().m.Data[0], Is.EqualTo((byte)2));
+		Assert.That(relay.ForgetCar(4), Is.EqualTo(1));
+	}
+
+	[Test]
 	public void SessionStatesOutliveManyCarStates()
 	{
 		// Phase 8 assessment: the warehouse and parking rows were the first evicted once 2,048 states were kept.

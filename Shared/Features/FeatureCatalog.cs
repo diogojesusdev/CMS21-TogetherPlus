@@ -50,6 +50,7 @@ public static class FeatureCatalog
 	public const string WorkshopContentSync = "WorkshopContentSync";
 	public const string SteamInvite = "SteamInvite";
 	public const string LiftReset = "LiftReset";
+	public const string WheelDimensions = "WheelDimensions";
 
 	public static readonly IReadOnlyList<FeatureInfo> All = Build(
 		(EngineStand2, true, "Sync the second engine stand"),
@@ -74,7 +75,8 @@ public static class FeatureCatalog
 		(ExaminedSync, true, "Sync which parts were examined"),
 		(WorkshopContentSync, true, "Check workshop and DLC content on join"),
 		(SteamInvite, true, "Steam invites (send and accept)"),
-		(LiftReset, true, "F4 resets a stuck lifter for everyone"));
+		(LiftReset, true, "F4 resets a stuck lifter for everyone"),
+		(WheelDimensions, true, "Sync wheel size, width and offset of cars (also for players who rejoin)"));
 
 	private static readonly Dictionary<string, FeatureInfo> ById = All.ToDictionary(f => f.Id);
 

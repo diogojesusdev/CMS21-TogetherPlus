@@ -14,6 +14,7 @@ using CMS21Together.ClientSide.Data;
 using CMS21Together.ClientSide.Data.Garage;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.ClientSide.Data.Handle;
+using CMS21Together.Shared;
 using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Data.Vanilla;
 using CMS21Together.Shared.Data.Vanilla.Cars;
@@ -145,6 +146,115 @@ public sealed class WheelVisualsFeature : ItemWatchFeature
 	{
 		var w = i.WheelData;
 		return w == null ? "-" : $"{w.IsBalanced}|{w.Size}|{w.Width}|{w.Profile}|{w.ET}";
+	}
+}
+
+/// <summary>
+/// A car's wheel width, rim size, tyre size and offset live in the car loader, not in its parts, and the host's copy of the car
+/// is the one from when it loaded: a change made by one player (or before a player rejoined) never reached the others.
+/// After a local change the four wheels are sent as the car's kept state, so late joiners and resyncs get them too.
+/// </summary>
+public sealed class WheelDimensionsFeature : GameFeature
+{
+	private const float CheckEverySeconds = 1f;
+	private const int MaxWheels = 8;
+	private const int MaxValue = 2000;
+
+	private readonly Dictionary<int, (string car, string signature)> known = new();
+	private float nextCheck;
+
+	public override string Id => FeatureCatalog.WheelDimensions;
+
+	protected override void Patch()
+	{
+	}
+
+	protected override void Stopped() => known.Clear();
+
+	private static string Key(int id) => "car/" + id + "/wheels";
+
+	private static int[] Read(CarLoader loader)
+	{
+		var wheels = loader?.WheelsData?.Wheels;
+		if (wheels == null || wheels.Count == 0 || wheels.Count > MaxWheels) return null;
+		var values = new int[wheels.Count * 4];
+		for (var i = 0; i < wheels.Count; i++)
+		{
+			var wheel = wheels[i];
+			if (wheel == null) return null;
+			values[i * 4] = (int)wheel.Width;
+			values[i * 4 + 1] = (int)wheel.Size;
+			values[i * 4 + 2] = (int)wheel.Profile;
+			values[i * 4 + 3] = wheel.ET;
+		}
+		return values;
+	}
+
+	private static string Signature(int[] values) => string.Join(",", values.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+
+	protected internal override void Tick()
+	{
+		if (Time.unscaledTime < nextCheck) return;
+		nextCheck = Time.unscaledTime + CheckEverySeconds;
+		var cars = ClientData.Instance?.loadedCars;
+		if (cars == null) return;
+		foreach (var id in known.Keys.Where(k => !cars.ContainsKey(k)).ToList()) known.Remove(id);
+		foreach (var pair in cars.ToList())
+		{
+			var car = pair.Value;
+			if (car == null || !car.isReady) continue;
+			var values = Read(Stations.StationCars.Loader(pair.Key));
+			if (values == null) continue;
+			var signature = Signature(values);
+			// A different car in the same loader starts from what the game loaded.
+			if (!known.TryGetValue(pair.Key, out var last) || last.car != car.carID)
+			{
+				known[pair.Key] = (car.carID, signature);
+				continue;
+			}
+			if (last.signature == signature) continue;
+			known[pair.Key] = (car.carID, signature);
+			if (!LocalAction) continue;
+			var id = pair.Key;
+			if (Log.IsEnabled(LogLevel.Info)) Log.Info($"[Wheels] Car {id} {car.carID} wheels changed here: {signature}; sending.");
+			Send(FeatureMessageKind.State, Key(id), p =>
+			{
+				p.Write(id);
+				p.Write(values.Length / 4);
+				foreach (var value in values) p.Write(value);
+			});
+		}
+	}
+
+	protected override void Receive(FeatureMessage message)
+	{
+		using var p = Payload(message);
+		var id = p.ReadInt();
+		var count = p.ReadInt();
+		if (count < 1 || count > MaxWheels || count * 4 * sizeof(int) > p.UnreadLength()) return;
+		var values = new int[count * 4];
+		for (var i = 0; i < values.Length; i++)
+		{
+			values[i] = p.ReadInt();
+			if (values[i] < -MaxValue || values[i] > MaxValue) return;
+		}
+		var loader = Stations.StationCars.Loader(id);
+		var current = Read(loader);
+		if (loader == null || current == null || current.Length != values.Length) return;
+		if (!ClientData.Instance.loadedCars.TryGetValue(id, out var car) || car == null) return;
+		if (Signature(current) == Signature(values)) return;
+		Log.Info($"[Wheels] Car {id} {car.carID} wheels set from #{message.From}: {Signature(values)}.");
+		Remote(() =>
+		{
+			for (var i = 0; i < count; i++)
+			{
+				loader.SetWheelSize(values[i * 4], values[i * 4 + 1], values[i * 4 + 2], (WheelType)i);
+				loader.SetET((WheelType)i, values[i * 4 + 3]);
+			}
+			loader.SetWheelSizes();
+		});
+		var applied = Read(loader);
+		known[id] = (car.carID, applied != null ? Signature(applied) : Signature(values));
 	}
 }
 
