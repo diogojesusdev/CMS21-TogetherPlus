@@ -31,6 +31,28 @@ public static class PartUpdateHooks
 
 	private static readonly LogThrottle Trace = new(20, 5000);
 
+	/// <summary>
+	/// Whether a fluid level the game just wrote on this car is this player's own doing. Loading a car writes every
+	/// level through <c>FluidData.SetLevel</c>, so a car being rebuilt here (the garage reloading it from the local
+	/// save after a scene change, or the host's copy arriving) must stay quiet: sending those levels is how a player
+	/// walking back into the garage reverted everyone else's draining and filling.
+	/// </summary>
+	private static bool LocalFluidChange(int carLoaderID)
+	{
+		var cars = ClientData.Instance?.loadedCars;
+		ModCar car = null;
+		cars?.TryGetValue(carLoaderID, out car);
+		return FluidSendRules.ShouldSend(
+			!Shutdown.Leaving && Client.Instance != null && Client.Instance.isConnected,
+			ActionGate.ApplyingServerState,
+			Suppressed,
+			GameLoadHook.IsGameReady(),
+			SceneManager.CurrentScene() == GameScene.garage,
+			car != null,
+			car != null && car.isReady,
+			car != null && car.needResync);
+	}
+
 	// FluidsData.SetLevel is not patched: FluidsData is a game value type, and MelonLoader 0.5.7 runs a patched method
 	// of one on memory 16 bytes past the real struct (see PatchRules). For the brake, coolant, steering and washer
 	// lists it forwards to FluidData.SetLevel (the hook below); engine oil is written straight into Oil.Level, so it
@@ -44,31 +66,37 @@ public static class PartUpdateHooks
 	[HarmonyPostfix]
 	public static void OilRefillDoneHook(FluidRefillLogic __instance)
 	{
-		if (Shutdown.Leaving || Client.Instance == null || !Client.Instance.isConnected || Suppressed) return;
-		if (SceneManager.CurrentScene() != GameScene.garage || !GameLoadHook.IsGameReady()) return;
 		if (__instance == null || __instance.CurrentFluid != CarFluidType.EngineOil) return;
 
 		var carLoader = __instance.carLoader;
 		if (carLoader == null || !carLoader.IsCarLoaded()) return;
+		var carLoaderID = CarLoaderRegistry.IdOf(carLoader);
+		if (!LocalFluidChange(carLoaderID)) return;
 		var oil = carLoader.FluidsData?.Oil;
 		if (oil == null) return;
-		ClientSend.CarFluid(CarLoaderRegistry.IdOf(carLoader), ModFluidData.ForOil(oil));
+		ClientSend.CarFluid(carLoaderID, ModFluidData.ForOil(oil));
 	}
 	
 	[HarmonyPatch(typeof(FluidData), nameof(FluidData.SetLevel))]
 	[HarmonyPostfix]
 	public static void SetLevelHook(float level, FluidData __instance)
 	{
-		if (!Client.Instance.isConnected || Suppressed) return;
+		if (__instance == null || __instance.CarFluid == null) return;
+		// Cheapest first: the hierarchy walk below runs on every frame of a pour.
+		if (Shutdown.Leaving || Client.Instance == null || !Client.Instance.isConnected) return;
 		if (SceneManager.CurrentScene() != GameScene.garage) return;
 
-		if (__instance != null && __instance.CarFluid != null)
+		int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.CarFluid);
+		if (!LocalFluidChange(carLoaderID))
 		{
-			int carLoaderID = CarLoaderRegistry.IdOfParent(__instance.CarFluid);
-			if (!Changed(carLoaderID, (int)__instance.CarFluid.FluidType, __instance.CarFluid.ID, __instance.Level, __instance.Condition)) return;
-			ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance));
+			// A load (or the host's own change) wrote this level: keep it as the baseline, so the player's next real
+			// change is measured against what the car holds now, and the loaded value is never sent on its own.
+			Remember(carLoaderID, (int)__instance.CarFluid.FluidType, __instance.CarFluid.ID, __instance.Level, __instance.Condition);
+			return;
 		}
 
+		if (!Changed(carLoaderID, (int)__instance.CarFluid.FluidType, __instance.CarFluid.ID, __instance.Level, __instance.Condition)) return;
+		ClientSend.CarFluid(carLoaderID, new ModFluidData(__instance));
 	}
 
 	// The game re-sets unchanged levels every frame on some cars; only a real change is sent.
@@ -81,6 +109,10 @@ public static class PartUpdateHooks
 		LastFluid[key] = (level, condition);
 		return true;
 	}
+
+	/// <summary>The value the car holds now, without sending it.</summary>
+	private static void Remember(int carLoaderID, int type, int id, float level, float condition) =>
+		LastFluid[(carLoaderID, type, id)] = (level, condition);
 
 	public static void ResetFluidCache() => LastFluid.Clear();
 

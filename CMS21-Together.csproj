@@ -133,6 +133,7 @@
     <Compile Include="Shared\Data\Vanilla\Cars\CarSlotAudit.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarFieldLayout.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\CarPayloadRules.cs" />
+        <Compile Include="Shared\Data\Vanilla\Cars\FluidSendRules.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBodyPartData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModBonusPartData.cs" />
         <Compile Include="Shared\Data\Vanilla\Cars\ModCarFluid.cs" />

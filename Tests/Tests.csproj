@@ -28,6 +28,7 @@
     <Compile Include="..\Shared\SteamworksUtils.cs" Link="Linked\SteamworksUtils.cs" />
     <Compile Include="..\Shared\SafeMemory.cs" Link="Linked\SafeMemory.cs" />
     <Compile Include="..\Shared\Data\Vanilla\Cars\CarPayloadRules.cs" Link="Linked\CarPayloadRules.cs" />
+    <Compile Include="..\Shared\Data\Vanilla\Cars\FluidSendRules.cs" Link="Linked\FluidSendRules.cs" />
     <Compile Include="..\Shared\Data\Vanilla\Cars\CarFieldLayout.cs" Link="Linked\CarFieldLayout.cs" />
     <Compile Include="..\Shared\SidecarRules.cs" Link="Linked\SidecarRules.cs" />
     <Compile Include="..\Shared\PlayerNames.cs" Link="Linked\PlayerNames.cs" />
