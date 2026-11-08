@@ -228,6 +228,32 @@ public class ResourceLockManagerTests
 	}
 
 	[Test]
+	public void FencingAcceptsTheWritersOwnLateWriteAfterItsClaimLapsed()
+	{
+		// A mount is only sent when the last bolt goes in, seconds after the claim, and the client releases a claim
+		// it has not touched for 6 s. The rear suspension arm came back off because another player had worked on that
+		// same part minutes earlier, which made the late write look stale.
+		manager.Acquire(2, 1, new[] { "car/3/part/1/5/7" });
+		Assert.That(manager.CheckWrite(2, "car/3/part/1/5/7", 1), Is.EqualTo(WriteVerdict.Accept));
+		manager.ReleaseAll(2, false);
+
+		manager.Acquire(1, 1, new[] { "car/3/part/1/5/7" });
+		manager.ReleaseAll(1, false); // idle release while the player was still bolting the part on
+		Assert.That(manager.CheckWrite(1, "car/3/part/1/5/7", 1), Is.EqualTo(WriteVerdict.Accept),
+			"the player held the part last, so their late mount is theirs to write");
+	}
+
+	[Test]
+	public void FencingStillRejectsALateWriteWhenSomeoneElseTookTheKeySince()
+	{
+		manager.Acquire(1, 1, new[] { "car/3/part/1/5/7" });
+		manager.ReleaseAll(1, false);
+		manager.Acquire(2, 1, new[] { "car/3/part/1/5/7" }); // the other player claimed it after player 1 let go
+		manager.ReleaseAll(2, false);
+		Assert.That(manager.CheckWrite(1, "car/3/part/1/5/7", 1), Is.EqualTo(WriteVerdict.RejectStale));
+	}
+
+	[Test]
 	public void AcceptedWritesRenewTheLease()
 	{
 		manager.Acquire(1, 1, new[] { "car/1/body/3" });

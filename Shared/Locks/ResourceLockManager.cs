@@ -111,6 +111,9 @@ public sealed class ResourceLockManager
 		epoch++;
 		foreach (var key in wanted)
 		{
+			// The grantee is now the rightful writer of the key: a write of theirs that lands after their own lease
+			// ended is late, not stale, even when another player worked on that part earlier (see CheckWrite).
+			Record(key, owner, token);
 			if (grants.TryGetValue(key, out var mine))
 			{
 				mine.Token = token;
@@ -179,7 +182,9 @@ public sealed class ResourceLockManager
 
 	/// <summary>
 	/// Fencing for a state write. A write is rejected while someone else holds the resource, when the writer's own request was
-	/// denied (token &lt; 0), or when its lease is gone and another player wrote since. Accepted writes renew the writer's lease.
+	/// denied (token &lt; 0), or when its lease is gone and another player has held or written the key since. Accepted writes
+	/// renew the writer's lease. A grant records its owner as the key's writer, so a write that lands just after the writer's
+	/// own lease ended is still theirs (a mount sent when the last bolt goes in, seconds after the claim).
 	/// </summary>
 	public WriteVerdict CheckWrite(int owner, string key, int token, out int holder)
 	{
