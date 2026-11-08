@@ -333,12 +333,12 @@ public static class ServerHandle
 
 		var key = LockKeys.Body(carLoaderID, carPart.carPartID);
 		var locks = Server.Instance?.Locks;
-		if (locks != null && !locks.AcceptWrite(fromClient, key, token))
+		if (locks != null && !locks.AcceptWrite(fromClient, key, token, out var why))
 		{
 			// Another player works on this panel: drop the write and show the writer the stored state again.
 			if (locks.ShouldResync(fromClient, key))
 			{
-				Log.Info($"[Locks] #{fromClient} may not write {key} (panel {carPart.carPartID} on car {carLoaderID}); its stored state was sent back.");
+				Log.Info($"[Locks] #{fromClient} may not write {key} (panel {carPart.carPartID} on car {carLoaderID}): {why}; its stored state was sent back.");
 				if (ServerData.Instance.CarPartInfo.TryGetValue(carLoaderID, out var car) &&
 				    car.BodyPartsReferences.TryGetValue(carPart.carPartID, out var stored))
 					ServerSend.BodyPartPacket(fromClient, stored, carLoaderID, true);
@@ -380,12 +380,12 @@ public static class ServerHandle
 
 		var key = LockKeys.ForPartScript(carLoaderID, (int)partScript.type, partScript.partID, partScript.partIdNumber);
 		var locks = Server.Instance?.Locks;
-		if (locks != null && !locks.AcceptWrite(fromClient, key, token))
+		if (locks != null && !locks.AcceptWrite(fromClient, key, token, out var why))
 		{
 			// Another player works on this part: drop the write and show the writer the stored state again.
 			if (locks.ShouldResync(fromClient, key))
 			{
-				Log.Info($"[Locks] #{fromClient} may not write {key} ({partScript.id}, unmounted={partScript.unmounted}); its stored state was sent back.");
+				Log.Info($"[Locks] #{fromClient} may not write {key} ({partScript.id}, unmounted={partScript.unmounted}): {why}; its stored state was sent back.");
 				var stored = StoredPartScript(partScript, carLoaderID);
 				if (stored != null) ServerSend.PartScriptPacket(fromClient, stored, carLoaderID, true);
 			}

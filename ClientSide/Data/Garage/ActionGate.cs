@@ -16,8 +16,17 @@ public static class ActionGate
 {
 	private const float ToastEverySeconds = 1f;
 
+	/// <summary>
+	/// How long a claim is kept alive while the game animates the action. The ABS module takes about 7 s to unscrew,
+	/// more than <see cref="ClientLockTable.IdleMs"/>, so without this the claim was released before the part came
+	/// off and the host refused the write. The cap keeps an action that never finishes from holding the part for good.
+	/// </summary>
+	private const float HoldSeconds = 25f;
+
 	private static int applying;
 	private static float lastToast = -10f;
+	private static string heldKey;
+	private static float heldUntil;
 
 	/// <summary>True while the client applies state received from the host: hooks must neither gate nor send it back.</summary>
 	public static bool ApplyingServerState => applying > 0;
@@ -66,11 +75,35 @@ public static class ActionGate
 			return false;
 		}
 		locks.Begin(key);
+		// The part is being worked on from now until its change goes out: a slow mount or unscrew must not lose the
+		// claim halfway through.
+		if (LockKeys.IsComponent(key))
+		{
+			heldKey = key;
+			heldUntil = Time.unscaledTime + HoldSeconds;
+		}
 		return true;
 	}
 
+	/// <summary>Per frame: keeps the claim of the action in progress alive, so it is not released while it animates.</summary>
+	public static void KeepAlive()
+	{
+		if (heldKey == null) return;
+		if (applying > 0 || Time.unscaledTime > heldUntil)
+		{
+			heldKey = null;
+			return;
+		}
+		Locks?.Table.Touch(heldKey);
+	}
+
 	/// <summary>Fencing token for a state write of <paramref name="key"/> (0 when this player has no claim on it).</summary>
-	public static int Stamp(string key) => key == null ? 0 : Locks?.Stamp(key) ?? 0;
+	public static int Stamp(string key)
+	{
+		// The action is over: its claim goes back to the normal idle timer.
+		if (key != null && string.Equals(key, heldKey, StringComparison.Ordinal)) heldKey = null;
+		return key == null ? 0 : Locks?.Stamp(key) ?? 0;
+	}
 
 	/// <summary>"In use by" message, at most once per second.</summary>
 	public static void ShowDenied(int holder)

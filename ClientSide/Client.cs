@@ -180,6 +180,7 @@ public class Client
 			Log.Error("[Client] Steam receive failed", ex);
 		}
 		net?.Tick();
+		ActionGate.KeepAlive();
 		Locks?.Pump();
 		try
 		{

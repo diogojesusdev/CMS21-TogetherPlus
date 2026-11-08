@@ -80,12 +80,23 @@ public sealed class LockServer
 	public void PlayerChangedScene(int slot) => Manager.ReleaseAll(slot, false);
 
 	/// <summary>Fencing for a state write from <paramref name="slot"/>; false means: do not store or relay it.</summary>
-	public bool AcceptWrite(int slot, string key, int token)
+	public bool AcceptWrite(int slot, string key, int token) => AcceptWrite(slot, key, token, out _);
+
+	/// <summary>
+	/// Fencing for a state write from <paramref name="slot"/>; false means: do not store or relay it.
+	/// <paramref name="reason"/> names the verdict (and the holder) for the log, or is null when accepted.
+	/// </summary>
+	public bool AcceptWrite(int slot, string key, int token, out string reason)
 	{
 		var verdict = Manager.CheckWrite(slot, key, token, out var holder);
-		if (verdict == WriteVerdict.Accept) return true;
+		if (verdict == WriteVerdict.Accept)
+		{
+			reason = null;
+			return true;
+		}
 		RejectedWrites++;
-		Log.Debug($"[Locks] Rejected write of {key} from #{slot} (token {token}): {verdict}{(holder != 0 ? $", held by #{holder}" : "")}.");
+		reason = $"{verdict}{(holder != 0 ? $", held by #{holder}" : "")}";
+		Log.Debug($"[Locks] Rejected write of {key} from #{slot} (token {token}): {reason}.");
 		return false;
 	}
 

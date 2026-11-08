@@ -320,6 +320,26 @@ public class ClientLockTableTests
 	}
 
 	[Test]
+	public void TouchingKeepsASlowActionsClaimAlive()
+	{
+		// The ABS module takes about 7 s to unscrew, more than IdleMs: the claim must survive it while the player
+		// is still on it (ActionGate.KeepAlive touches it every frame until the change is sent).
+		var token = table.Begin("car/3/part/2/11/0");
+		table.OnReply(token, LockStatus.Granted, 2);
+		for (var elapsed = 0; elapsed < 7000; elapsed += 100)
+		{
+			now += 100;
+			table.Touch("car/3/part/2/11/0");
+			Assert.That(Pump().Any(c => c.Kind == LockCommandKind.Release), Is.False, $"released after {elapsed} ms");
+		}
+		Assert.That(table.StateOf("car/3/part/2/11/0"), Is.EqualTo(ClientLockTable.State.Held));
+
+		// Once the player stops touching it, the idle release happens as before.
+		now += ClientLockTable.IdleMs;
+		Assert.That(Pump().Any(c => c.Kind == LockCommandKind.Release), Is.True);
+	}
+
+	[Test]
 	public void BeginReturnsATokenOnceAndStampsWrites()
 	{
 		var token = table.Begin("car/1/body/3");
