@@ -349,7 +349,7 @@ public static class PartsUpdater
 		if (GameData.Instance?.carLoaders == null || carLoaderID < 0 || carLoaderID >= GameData.Instance.carLoaders.Length ||
 		    GameData.Instance.carLoaders[carLoaderID]?.FluidsData == null)
 		{
-			Log.Warn($"[Apply] Fluid change for car {carLoaderID} dropped: the car is not loaded here.");
+			Breadcrumb(TraceMissing, $"[Apply] Fluid change for car {carLoaderID} dropped: the car is not loaded here.");
 			ClientSend.ResyncCar(carLoaderID);
 			yield break;
 		}

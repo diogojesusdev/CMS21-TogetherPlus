@@ -844,6 +844,17 @@ public static class ServerHandle
 		ServerSend.RepairPartPacket(fromClient, info, isBody, success);
 	}
 	
+	private static readonly Dictionary<(int slot, int car), long> LastCarResync = new();
+
+	/// <summary>A player's repeated request for the same car within a moment is dropped: the resync already sent covers it (older players flooded the host).</summary>
+	private static bool ResyncAllowed(int slot, int carLoaderID)
+	{
+		var now = ApprovalClock.ElapsedMilliseconds;
+		if (LastCarResync.TryGetValue((slot, carLoaderID), out var last) && now - last < 2000) return false;
+		LastCarResync[(slot, carLoaderID)] = now;
+		return true;
+	}
+
 	public static void ResyncPacket(int fromClient, Packet packet)
 	{
 		PacketTypes resyncType = packet.Read<PacketTypes>();
@@ -853,7 +864,7 @@ public static class ServerHandle
 			case PacketTypes.loadCar:
 				int carLoaderID = packet.ReadInt();
 				if (carLoaderID == -1) ServerResyncs.ResyncAllCars(fromClient);
-				else ServerResyncs.ResyncCar(fromClient, carLoaderID);
+				else if (ResyncAllowed(fromClient, carLoaderID)) ServerResyncs.ResyncCar(fromClient, carLoaderID);
 				break;
 			case PacketTypes.newJob:
 				ServerResyncs.ResyncJobs(fromClient);

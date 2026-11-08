@@ -389,8 +389,17 @@ public class ClientSend
 	}
 
 
+	private static readonly System.Diagnostics.Stopwatch ResyncClock = System.Diagnostics.Stopwatch.StartNew();
+	private static readonly System.Collections.Generic.Dictionary<int, long> LastCarResync = new();
+
+	/// <summary>A resync already asked for is on its way; asking again per dropped packet made the host resend the whole car dozens of times.</summary>
+	private const long CarResyncGapMs = 3000;
+
 	public static void ResyncCar(int carLoaderID)
 	{
+		var now = ResyncClock.ElapsedMilliseconds;
+		if (carLoaderID >= 0 && LastCarResync.TryGetValue(carLoaderID, out var last) && now - last < CarResyncGapMs) return;
+		LastCarResync[carLoaderID] = now;
 		using (var packet = new Packet((int)PacketTypes.resync))
 		{
 			packet.Write(PacketTypes.loadCar);
