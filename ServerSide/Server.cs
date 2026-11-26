@@ -40,6 +40,8 @@ public class Server
 	private TcpAcceptor tcp;
 	private string pendingStopReason;
 	private bool stopping;
+	private readonly Stopwatch levelClock = Stopwatch.StartNew();
+	private long nextLevelSync;
 
 	public NetHost Host => host;
 
@@ -179,6 +181,18 @@ public class Server
 
 		host.Tick();
 		Locks?.Tick();
+
+		// Levels are shared: a player who is ahead raises the host and the others, even if nobody gains XP for a while
+		// (for example a client that joined with a higher saved level).
+		if (isRunning && ServerData.Instance != null)
+		{
+			var now = levelClock.ElapsedMilliseconds;
+			if (now >= nextLevelSync)
+			{
+				nextLevelSync = now + 5000;
+				ServerData.Instance.SyncLevels();
+			}
+		}
 
 		if (pendingStopReason != null)
 		{

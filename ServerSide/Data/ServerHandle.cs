@@ -103,6 +103,10 @@ public static class ServerHandle
 
 		// Live stats start from the saved profile, so saving before the first update never resets them.
 		data.SetPlayerInfo(fromClient, info);
+		// The joining player starts on the session's level, and its arrival can raise the host (see SyncLevels).
+		var (sessionLevel, sessionExp) = data.SyncLevels(fromClient);
+		info.playerLevel = sessionLevel;
+		info.playerExp = sessionExp;
 
 		foreach (var other in data.connectedClients.Values)
 			if (other.playerID != fromClient)
@@ -283,6 +287,8 @@ public static class ServerHandle
 		}
 		player.playerExp = exp;
 		player.playerLevel = lvl;
+		// Levels are shared: whoever is furthest raises the rest (the host included).
+		ServerData.Instance.SyncLevels();
 	}
 	
 	public static void PointPacket(int fromClient, Packet packet)

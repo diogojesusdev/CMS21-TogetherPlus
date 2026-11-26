@@ -1,8 +1,12 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
+using CMS.Containers;
+using CMS.UI;
 using CMS.UI.Logic.Upgrades;
 using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.ServerSide;
 using CMS21Together.Shared.Data;
+using CMS21Together.Shared.Economy;
 using HarmonyLib;
 using UnityEngine;
 using CMS21Together.Shared;
@@ -64,4 +68,29 @@ public static class Stats
 	[HarmonyPatch(typeof(GlobalData), nameof(GlobalData.AddPlayerScraps))]
 	[HarmonyPostfix]
 	public static void AddPlayerScrapsHook(int amount) => Wallet.OnLocalChange(0, amount);
+
+	/// <summary>
+	/// Raises this player to the session's level and XP. Levels gained this way get the same per-level skill point the
+	/// game's own level-up loop awards, so a shared level does not cost the player their points.
+	/// </summary>
+	public static void ApplyLevel(int level, int exp)
+	{
+		if (level < 1 || exp < 0) return;
+		if (!LevelSync.IsAhead(level, exp, GlobalData.PlayerLevel, GlobalData.PlayerExp)) return;
+		var upgrade = Singleton<GameManager>.Instance?.UpgradeSystem;
+		while (GlobalData.PlayerLevel < level)
+		{
+			upgrade?.AddPoints();
+			GlobalData.PlayerLevel++;
+		}
+		GlobalData.PlayerExp = exp;
+		try
+		{
+			UIManager.Get()?.RefreshAllStats();
+		}
+		catch (Exception ex)
+		{
+			Log.Warn($"[Stats] Could not refresh the stats after the level sync: {ex.Message}");
+		}
+	}
 }

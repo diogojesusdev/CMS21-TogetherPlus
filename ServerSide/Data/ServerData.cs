@@ -8,6 +8,7 @@ using CMS21Together.Shared.Data.Vanilla;
 using CMS21Together.Shared.Data.Vanilla.Cars;
 using CMS21Together.Shared.Data.Vanilla.GarageTool;
 using CMS21Together.Shared.Data.Vanilla.Jobs;
+using CMS21Together.Shared.Economy;
 using MelonLoader;
 using CMS21Together.Shared;
 
@@ -347,6 +348,53 @@ public class ServerData
 		client.playerSkillPoints = info.skillPoints;
 		client.position = info.position;
 		client.rotation = info.rotation;
+	}
+
+	/// <summary>The highest level and XP of the host and every connected player.</summary>
+	public (int level, int exp) SessionLevel()
+	{
+		var level = GlobalData.PlayerLevel;
+		var exp = GlobalData.PlayerExp;
+		foreach (var client in connectedClients.Values)
+			if (LevelSync.IsAhead(client.playerLevel, client.playerExp, level, exp))
+			{
+				level = client.playerLevel;
+				exp = client.playerExp;
+			}
+		return (level, exp);
+	}
+
+	/// <summary>
+	/// Raises the host and every lower player to the session's highest level/XP. A joining player is skipped (its
+	/// spawn packet carries the returned values) so it does not get a fix packet before the spawn.
+	/// </summary>
+	public (int level, int exp) SyncLevels(int skipSlot = -1)
+	{
+		var (level, exp) = SessionLevel();
+		if (level < 1) return (level, exp);
+		if (!GameLoadHook.IsGameReady()) return (level, exp);
+		if (ClientData.Instance != null && ClientData.Instance.gamemode == Gamemode.Sandbox) return (level, exp);
+		if (LevelSync.IsAhead(level, exp, GlobalData.PlayerLevel, GlobalData.PlayerExp))
+		{
+			Stats.ApplyLevel(level, exp);
+			Log.Info($"[Level] The host was raised to the session level {level} / {exp} XP.");
+		}
+		foreach (var pair in connectedClients)
+		{
+			if (pair.Key == 1 || pair.Key == skipSlot) continue;
+			if (!LevelSync.IsAhead(level, exp, pair.Value.playerLevel, pair.Value.playerExp)) continue;
+			pair.Value.playerLevel = level;
+			pair.Value.playerExp = exp;
+			ServerSend.StatsFixPacket(pair.Key, exp, level);
+			Log.Info($"[Level] #{pair.Key} was raised to the session level {level} / {exp} XP.");
+		}
+		if (skipSlot > 0 && connectedClients.TryGetValue(skipSlot, out var skipped) &&
+		    LevelSync.IsAhead(level, exp, skipped.playerLevel, skipped.playerExp))
+		{
+			skipped.playerLevel = level;
+			skipped.playerExp = exp;
+		}
+		return (level, exp);
 	}
 
 	public void SetCarColor(ModColor color)

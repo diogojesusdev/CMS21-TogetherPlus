@@ -330,26 +330,14 @@ public static class ClientHandle
 		MelonCoroutines.Start(JobManager.SelectedJob(job, action));
 	}
 
-	/// <summary>The host kept higher stored progress than this game reported: show the stored level and XP.</summary>
+	/// <summary>The host synced a higher session level/XP to this game.</summary>
 	public static void StatsFixPacket(Packet packet)
 	{
 		var exp = packet.ReadInt();
 		var level = packet.ReadInt();
 		if (exp < 0 || level < 1) return;
-		using (ActionGate.Apply())
-		{
-			GlobalData.PlayerLevel = level;
-			GlobalData.PlayerExp = exp;
-		}
-		try
-		{
-			UIManager.Get()?.RefreshAllStats();
-		}
-		catch (Exception ex)
-		{
-			Log.Warn($"[ClientHandle] Could not refresh the stats: {ex.Message}");
-		}
-		Log.Info($"[ClientHandle] The host restored this player's level {level} / {exp} XP.");
+		using (ActionGate.Apply()) Stats.ApplyLevel(level, exp);
+		Log.Info($"[ClientHandle] The host synced this player to level {level} / {exp} XP.");
 	}
 
 	public static void EndJobPacket(Packet packet)
