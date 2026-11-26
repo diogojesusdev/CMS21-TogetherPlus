@@ -35,4 +35,14 @@ public static class JobRewards
 		if (xp >= BigJobXp) return 0.75;
 		return 0.5;
 	}
+
+	/// <summary>What the order summary should show as the total payout: what the host actually credits.</summary>
+	public static long DisplayedPayout(long totalPayout) =>
+		totalPayout * Payouts.OrderPayoutMultiplier + Payouts.OrderPayoutFlatBonus;
+
+	/// <summary>The task bonus as paid (the whole order payout is multiplied).</summary>
+	public static long DisplayedTaskBonus(long taskBonus) => taskBonus * Payouts.OrderPayoutMultiplier;
+
+	/// <summary>The job bonus as paid.</summary>
+	public static long DisplayedJobBonus(long jobBonus) => jobBonus * Payouts.OrderPayoutMultiplier;
 }

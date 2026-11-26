@@ -57,4 +57,22 @@ public class JobRewardsTests
 		var xp = (int)Math.Ceiling(bar * JobRewards.ExperienceFraction(202, true));
 		Assert.That(xp, Is.GreaterThanOrEqualTo(bar));
 	}
+
+	[TestCase(0, 500)]
+	[TestCase(11, 533)]
+	[TestCase(158, 974)]
+	[TestCase(337, 1511)]
+	public void DisplayedPayoutMatchesTheHostPayment(long totalPayout, long expected)
+	{
+		Assert.That(JobRewards.DisplayedPayout(totalPayout), Is.EqualTo(expected));
+	}
+
+	[TestCase(0, 0)]
+	[TestCase(40, 120)]
+	[TestCase(228, 684)]
+	public void DisplayedBonusesAreMultiplied(long bonus, long expected)
+	{
+		Assert.That(JobRewards.DisplayedTaskBonus(bonus), Is.EqualTo(expected));
+		Assert.That(JobRewards.DisplayedJobBonus(bonus), Is.EqualTo(expected));
+	}
 }

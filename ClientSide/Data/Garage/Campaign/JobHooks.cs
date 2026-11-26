@@ -6,11 +6,13 @@ using CMS.Extensions;
 using CMS.FileSupport.INI;
 using CMS.PartModules;
 using CMS.UI;
+using CMS.UI.Logic.Tabs.CarInfo;
 using CMS.UI.Windows;
 using CMS21Together.ClientSide.Data.Garage.Car;
 using CMS21Together.ClientSide.Data.Handle;
 using CMS21Together.ServerSide;
 using CMS21Together.ServerSide.Data;
+using CMS21Together.Shared.Data;
 using CMS21Together.Shared.Data.Vanilla.Cars;
 using CMS21Together.Shared.Data.Vanilla.Jobs;
 using HarmonyLib;
@@ -313,5 +315,62 @@ public static class JobHooks
 		upgrade.AvailablePoints += points;
 		if (Client.Instance != null && Client.Instance.isConnected) ClientSend.PointPacket(upgrade.AvailablePoints);
 		Log.Info($"[Job] Order {job.id} granted {points} skill point(s); {upgrade.AvailablePoints} available.");
+	}
+
+	// The order summary must show what the host actually pays (3x + flat), not the game's base numbers. The job's
+	// fields are swapped only while the game formats and writes the three texts, then put back: the hand-over still
+	// sends the base TotalPayout, so the host never multiplies twice.
+	private static Job displayJob;
+	private static int displayTaskBonus, displayJobBonus, displayTotalPayout;
+	private static bool displaying;
+
+	[HarmonyPatch(typeof(OrderSummaryTab), "SetupJobs")]
+	[HarmonyPrefix]
+	public static void SetupJobsPrefix(Job job)
+	{
+		displaying = false;
+		if (job == null || Client.Instance == null || !Client.Instance.isConnected || Sandbox()) return;
+		displayJob = job;
+		displayTaskBonus = job.TaskBonus;
+		displayJobBonus = job.JobBonus;
+		displayTotalPayout = job.TotalPayout;
+		job.TaskBonus = ClampToInt(JobRewards.DisplayedTaskBonus(displayTaskBonus));
+		job.JobBonus = ClampToInt(JobRewards.DisplayedJobBonus(displayJobBonus));
+		job.TotalPayout = ClampToInt(JobRewards.DisplayedPayout(displayTotalPayout));
+		displaying = true;
+	}
+
+	[HarmonyPatch(typeof(OrderSummaryTab), "SetupJobs")]
+	[HarmonyPostfix]
+	public static void SetupJobsPostfix() => RestoreDisplay();
+
+	[HarmonyPatch(typeof(OrderSummaryTab), "SetupJobs")]
+	[HarmonyFinalizer]
+	public static void SetupJobsFinalizer() => RestoreDisplay();
+
+	private static void RestoreDisplay()
+	{
+		if (!displaying) return;
+		displayJob.TaskBonus = displayTaskBonus;
+		displayJob.JobBonus = displayJobBonus;
+		displayJob.TotalPayout = displayTotalPayout;
+		displayJob = null;
+		displaying = false;
+	}
+
+	private static int ClampToInt(long value) => value > int.MaxValue ? int.MaxValue : (int)value;
+
+	private static bool Sandbox()
+	{
+		try
+		{
+			var profile = Singleton<GameManager>.Instance?.GameDataManager?.CurrentProfileData;
+			if (profile != null) return profile.Difficulty == DifficultyLevel.Sandbox;
+		}
+		catch (Exception)
+		{
+			// Not loaded yet.
+		}
+		return ClientData.Instance != null && ClientData.Instance.gamemode == Gamemode.Sandbox;
 	}
 }
