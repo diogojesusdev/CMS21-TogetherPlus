@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Linq;
 using CMS.Containers;
@@ -245,7 +246,7 @@ public static class JobHooks
 
 		Singleton<GameManager>.Instance.Inventory.TryAddSpecialCase(job.IsMission);
 		// The payout is already in the shared wallet (the host credited it); the XP is this player's own.
-		GlobalData.AddPlayerExp(job.XP);
+		GrantExperience(job);
 		GrantSkillPoints(job);
 		
 		var modJob = new ModJob(job);
@@ -284,6 +285,19 @@ public static class JobHooks
 		if (job.IsCompleted) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_finish_order", 1);
 		if (job.IsCompleted && job.BonusToExp) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_bonus_exp", 1);
 		if (job.IsCompleted && job.BonusToMoney) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_bonus_money", 1);
+	}
+
+	/// <summary>
+	/// XP as a share of the current level bar: two ordinary orders level the player once, and one hard order does too.
+	/// AddPlayerExp is the game's own path, so the level-up, the per-level skill points, the XP bar and the host sync
+	/// all run exactly as they do for vanilla XP.
+	/// </summary>
+	private static void GrantExperience(Job job)
+	{
+		var fraction = JobRewards.ExperienceFraction(job.XP, job.IsMission);
+		var bar = GlobalData.GetDiffToNextLvl(GlobalData.PlayerLevel);
+		var xp = bar > 0 ? (int)Math.Ceiling(bar * fraction) : job.XP;
+		GlobalData.AddPlayerExp(Math.Max(xp, job.XP));
 	}
 
 	/// <summary>
