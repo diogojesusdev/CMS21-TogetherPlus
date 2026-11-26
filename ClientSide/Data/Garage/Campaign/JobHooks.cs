@@ -17,6 +17,7 @@ using Il2CppSystem.Collections.Generic;
 using MelonLoader;
 using UnityEngine;
 using CMS21Together.Shared;
+using CMS21Together.Shared.Economy;
 
 namespace CMS21Together.ClientSide.Data.Garage.Campaign;
 
@@ -245,6 +246,7 @@ public static class JobHooks
 		Singleton<GameManager>.Instance.Inventory.TryAddSpecialCase(job.IsMission);
 		// The payout is already in the shared wallet (the host credited it); the XP is this player's own.
 		GlobalData.AddPlayerExp(job.XP);
+		GrantSkillPoints(job);
 		
 		var modJob = new ModJob(job);
 		if (JobManager.selectedJobs.Any(j => j.id == job.id)) JobManager.selectedJobs.Remove(modJob);
@@ -282,5 +284,20 @@ public static class JobHooks
 		if (job.IsCompleted) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_finish_order", 1);
 		if (job.IsCompleted && job.BonusToExp) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_bonus_exp", 1);
 		if (job.IsCompleted && job.BonusToMoney) Singleton<GameManager>.Instance.PlatformManager.IncrementStat("stat_bonus_money", 1);
+	}
+
+	/// <summary>
+	/// Skill points for the order: at least one, more for bigger orders. Like the XP this belongs to the player who
+	/// hands the order over, so the host stores the new value for the next session.
+	/// </summary>
+	private static void GrantSkillPoints(Job job)
+	{
+		var upgrade = Singleton<GameManager>.Instance?.UpgradeSystem;
+		if (upgrade == null) return;
+		var tasks = job.jobTasks != null ? job.jobTasks.Count : 0;
+		var points = JobRewards.SkillPoints(tasks, job.jobPartsCount, job.IsMission);
+		upgrade.AvailablePoints += points;
+		if (Client.Instance != null && Client.Instance.isConnected) ClientSend.PointPacket(upgrade.AvailablePoints);
+		Log.Info($"[Job] Order {job.id} granted {points} skill point(s); {upgrade.AvailablePoints} available.");
 	}
 }

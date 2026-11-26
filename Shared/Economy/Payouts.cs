@@ -26,6 +26,9 @@ public sealed class Payouts
 	/// <summary>Balance: the host pays every handed-over order this many times the game's payout.</summary>
 	public const long OrderPayoutMultiplier = 3;
 
+	/// <summary>Balance: every handed-over order also pays this flat amount, so the smallest jobs are worth doing.</summary>
+	public const long OrderPayoutFlatBonus = 500;
+
 	private readonly EconomyServer economy;
 	private readonly Func<long> clock;
 	private readonly Dictionary<string, long> done = new();
@@ -78,7 +81,7 @@ public sealed class Payouts
 		{
 			// Approve only: the money is granted by CompleteEnd when EndJobPacket proves the car was handed over.
 			// This used to pay on the ask and store MaxValue, so a lost answer paid once and blocked the order forever.
-			var payout = amount * OrderPayoutMultiplier;
+			var payout = amount * OrderPayoutMultiplier + OrderPayoutFlatBonus;
 			if (payout > EconomyLedger.MaxMoneyDelta) return TxnStatus.Invalid;
 			PurgeApprovals(now);
 			if (ApprovalHeld(id, now)) return TxnStatus.Invalid;

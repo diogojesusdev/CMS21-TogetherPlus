@@ -243,6 +243,7 @@
     <Compile Include="Shared\Economy\PurchaseLinker.cs" />
     <Compile Include="Shared\Economy\BulkSale.cs" />
     <Compile Include="Shared\Economy\Payouts.cs" />
+    <Compile Include="Shared\Economy\JobRewards.cs" />
     <Compile Include="Shared\Economy\PurchaseWire.cs" />
     <Compile Include="Shared\Economy\WalletRules.cs" />
     <Compile Include="Shared\World\InventorySync.cs" />
